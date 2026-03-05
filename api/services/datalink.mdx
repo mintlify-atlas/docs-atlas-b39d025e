@@ -1,0 +1,165 @@
+---
+title: 'VenziaDatalinkService'
+description: 'Main service for opening datalink management dialogs'
+---
+
+## Overview
+
+The `VenziaDatalinkService` is the primary Angular service for opening and managing datalink dialogs in Alfresco Content App. It handles dialog initialization and error notifications.
+
+## Import
+
+```typescript
+import { VenziaDatalinkService } from 'venzia-datalink';
+```
+
+## Injectable
+
+```typescript
+@Injectable({
+  providedIn: 'root'
+})
+```
+
+## Constructor
+
+```typescript
+constructor(
+  private dialogRef: MatDialog,
+  private notificationService: NotificationService
+)
+```
+
+<ParamField path="dialogRef" type="MatDialog">
+  Angular Material dialog service for opening modal dialogs
+</ParamField>
+
+<ParamField path="notificationService" type="NotificationService">
+  ADF notification service for displaying error messages
+</ParamField>
+
+## Methods
+
+### dataLinkDoc
+
+Opens the datalink management dialog for a given node.
+
+```typescript
+dataLinkDoc(node: NodeEntry): void
+```
+
+<ParamField path="node" type="NodeEntry" required>
+  The Alfresco node to manage datalinks for. Must have an entry with properties.
+</ParamField>
+
+#### Behavior
+
+- **Valid Node**: Opens `DatalinkDialogComponent` with the node ID
+- **Invalid Node**: Shows error notification "DATALINK.MESSAGES.ERRORS.NO_PROPERTIES"
+- **Dialog Configuration**:
+  - Width: 730px
+  - Panel class: 'aca-permissions-dialog-panel'
+  - Data: `{ nodeId: node.entry.id }`
+
+#### Example
+
+```typescript
+import { Component } from '@angular/core';
+import { VenziaDatalinkService } from 'venzia-datalink';
+import { NodeEntry } from '@alfresco/js-api';
+
+@Component({
+  selector: 'app-my-component',
+  template: `
+    <button (click)="openDatalink()">Edit Datalink</button>
+  `
+})
+export class MyComponent {
+  currentNode: NodeEntry;
+
+  constructor(private datalinkService: VenziaDatalinkService) {}
+
+  openDatalink() {
+    this.datalinkService.dataLinkDoc(this.currentNode);
+  }
+}
+```
+
+## Implementation Details
+
+<CodeGroup>
+```typescript Service Implementation
+import { Injectable } from '@angular/core';
+import { DatalinkDialogComponent } from '../dialogs/datalink-dialog/datalink-dialog.component';
+import { MatDialog } from '@angular/material/dialog';
+import { NotificationService } from '@alfresco/adf-core';
+import { NodeEntry } from '@alfresco/js-api';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class VenziaDatalinkService {
+  constructor(
+    private dialogRef: MatDialog,
+    private notificationService: NotificationService
+  ) {}
+
+  dataLinkDoc(node: NodeEntry): void {
+    if (node?.entry && node?.entry.properties) {
+      this.dialogRef.open(DatalinkDialogComponent, {
+        data: { nodeId: node.entry.id },
+        panelClass: 'aca-permissions-dialog-panel',
+        width: '730px'
+      });
+    } else {
+      this.notificationService.showError('DATALINK.MESSAGES.ERRORS.NO_PROPERTIES');
+    }
+  }
+}
+```
+</CodeGroup>
+
+## Usage from ACA Extensions
+
+This service is typically invoked from ACA extension actions:
+
+```typescript
+import { VenziaDatalinkService } from 'venzia-datalink';
+
+export function openDatalinkAction(
+  context: any,
+  datalinkService: VenziaDatalinkService
+) {
+  const node = context.selection.file;
+  datalinkService.dataLinkDoc(node);
+}
+```
+
+## Error Handling
+
+The service validates that:
+1. Node exists (`node?.entry`)
+2. Node has properties (`node?.entry.properties`)
+
+If validation fails, it displays an error notification using the translation key `DATALINK.MESSAGES.ERRORS.NO_PROPERTIES`.
+
+## Dialog Configuration
+
+The dialog opened by this service:
+- Uses Angular Material's `MatDialog`
+- Applies custom panel class for styling
+- Passes the node ID as dialog data
+- Has a fixed width of 730px for consistent UX
+
+## Dependencies
+
+- `@angular/core`: Angular framework
+- `@angular/material/dialog`: Material dialog component
+- `@alfresco/adf-core`: ADF notification service
+- `@alfresco/js-api`: Alfresco JavaScript API types
+
+## See Also
+
+- [Datalink Dialog Component](/api/components/datalink-dialog) - Dialog component opened by this service
+- [VenziaDatalinkApiService](/api/services/datalink-api) - Service for loading datalink configurations
+- [Edit Datalink Guide](/usage/edit-datalink) - User guide for the datalink dialog

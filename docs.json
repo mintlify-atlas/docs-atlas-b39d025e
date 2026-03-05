@@ -83,6 +83,7 @@
           {
             "group": "Services",
             "pages": [
+              "api/services/datalink",
               "api/services/datalink-api",
               "api/services/datalink-rest",
               "api/services/datalink-search"
@@ -91,6 +92,7 @@
           {
             "group": "Angular Components",
             "pages": [
+              "api/components/datalink-manager",
               "api/components/datalink-dialog",
               "api/components/datalink-list",
               "api/components/datalink-search"

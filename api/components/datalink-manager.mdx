@@ -1,0 +1,257 @@
+---
+title: 'DataLinkManagerComponent'
+description: 'Manager component that orchestrates datalink list and operations'
+---
+
+## Overview
+
+The `DataLinkManagerComponent` is a standalone Angular component that provides a high-level interface for managing datalinks on an Alfresco node. It orchestrates the `DatalinkListComponent` and handles user actions.
+
+## Import
+
+```typescript
+import { DataLinkManagerComponent } from 'venzia-datalink';
+```
+
+## Selector
+
+```typescript
+aqua-datalink-manager
+```
+
+## Component Configuration
+
+```typescript
+@Component({
+  encapsulation: ViewEncapsulation.None,
+  selector: 'aqua-datalink-manager',
+  templateUrl: './datalink-manager.component.html',
+  standalone: true,
+  imports: [CommonModule, DatalinkListComponent]
+})
+```
+
+## Inputs
+
+<ParamField path="nodeId" type="string" required>
+  The Alfresco node ID to manage datalinks for
+</ParamField>
+
+## Outputs
+
+<ParamField path="select" type="EventEmitter<any>">
+  Emitted when a datalink list item is selected. Returns the selection array.
+</ParamField>
+
+## Properties
+
+### toggleStatus
+
+```typescript
+toggleStatus: boolean = false
+```
+
+Internal toggle state for UI interactions.
+
+### datalinkList
+
+```typescript
+@ViewChild('datalinkList')
+datalinkList: DatalinkListComponent
+```
+
+Reference to the child `DatalinkListComponent` for programmatic control.
+
+## Methods
+
+### ngOnInit
+
+Lifecycle hook called after component initialization.
+
+```typescript
+ngOnInit(): void
+```
+
+### onSelect
+
+Handles selection events from the datalink list.
+
+```typescript
+onSelect(selectionList: any[]): void
+```
+
+<ParamField path="selectionList" type="any[]">
+  Array of selected datalink items
+</ParamField>
+
+Emits the selection through the `select` output EventEmitter.
+
+### onError
+
+Handles error events by dispatching a snackbar error action.
+
+```typescript
+onError(errorMessage: string): void
+```
+
+<ParamField path="errorMessage" type="string">
+  Error message to display in the snackbar
+</ParamField>
+
+Dispatches `SnackbarErrorAction` to the NgRx store.
+
+### onUpdate
+
+Reloads the datalink list after updates.
+
+```typescript
+onUpdate(): void
+```
+
+Calls `reload()` on the child `DatalinkListComponent`.
+
+### openAddDatalinkDialog
+
+Opens the dialog for adding a new datalink.
+
+```typescript
+openAddDatalinkDialog(event: Event): void
+```
+
+<ParamField path="event" type="Event">
+  Click event from the UI
+</ParamField>
+
+Delegates to `DatalinkListComponent.openAddDatalinkDialog()`.
+
+### removeSelectionRows
+
+Deletes selected datalink rows.
+
+```typescript
+removeSelectionRows(event: Event): void
+```
+
+<ParamField path="event" type="Event">
+  Click event from the UI
+</ParamField>
+
+Delegates to `DatalinkListComponent.deleteSelectRows()`.
+
+## Usage Example
+
+```typescript
+import { Component } from '@angular/core';
+import { DataLinkManagerComponent } from 'venzia-datalink';
+
+@Component({
+  selector: 'app-document-details',
+  template: `
+    <div class="datalink-container">
+      <h2>Manage Datalinks</h2>
+      <aqua-datalink-manager
+        [nodeId]="documentId"
+        (select)="onDatalinkSelect($event)">
+      </aqua-datalink-manager>
+    </div>
+  `,
+  imports: [DataLinkManagerComponent]
+})
+export class DocumentDetailsComponent {
+  documentId = 'abc123-node-id';
+
+  onDatalinkSelect(selection: any[]) {
+    console.log('Selected datalinks:', selection);
+  }
+}
+```
+
+## Template Structure
+
+The component template includes:
+- Child `DatalinkListComponent` with `#datalinkList` template reference
+- Event bindings for selection, errors, and updates
+
+## Implementation Details
+
+<CodeGroup>
+```typescript Component Implementation
+import { Component, Input, OnInit, ViewChild, Output, EventEmitter, ViewEncapsulation } from '@angular/core';
+import { Store } from '@ngrx/store';
+import { DatalinkListComponent } from './datalink-list/datalink-list.component';
+import { AppStore, SnackbarErrorAction } from '@alfresco/aca-shared/store';
+import { CommonModule } from '@angular/common';
+
+@Component({
+  encapsulation: ViewEncapsulation.None,
+  selector: 'aqua-datalink-manager',
+  templateUrl: './datalink-manager.component.html',
+  standalone: true,
+  imports: [CommonModule, DatalinkListComponent]
+})
+export class DataLinkManagerComponent implements OnInit {
+  @Input()
+  nodeId: string;
+
+  @ViewChild('datalinkList')
+  datalinkList: DatalinkListComponent;
+
+  @Output()
+  select: EventEmitter<any> = new EventEmitter();
+
+  toggleStatus = false;
+
+  constructor(private store: Store<AppStore>) {}
+
+  ngOnInit() {}
+
+  onSelect(selectionList: any[]) {
+    this.select.emit(selectionList);
+  }
+
+  onError(errorMessage: string) {
+    this.store.dispatch(new SnackbarErrorAction(errorMessage));
+  }
+
+  onUpdate() {
+    this.datalinkList.reload();
+  }
+
+  openAddDatalinkDialog(event: Event) {
+    this.datalinkList.openAddDatalinkDialog(event);
+  }
+
+  removeSelectionRows(event: Event) {
+    this.datalinkList.deleteSelectRows(event);
+  }
+}
+```
+</CodeGroup>
+
+## Architecture
+
+The manager component follows a facade pattern:
+- **Orchestration**: Manages child component interactions
+- **Event Delegation**: Forwards events to child components
+- **Error Handling**: Dispatches errors to the NgRx store
+- **Standalone**: Uses Angular's modern standalone component model
+
+## Integration with NgRx Store
+
+The component integrates with the ACA shared store:
+- Uses `Store<AppStore>` for state management
+- Dispatches `SnackbarErrorAction` for error notifications
+- Follows the ACA extension patterns
+
+## Dependencies
+
+- `@angular/core`: Angular framework
+- `@angular/common`: CommonModule
+- `@ngrx/store`: NgRx state management
+- `@alfresco/aca-shared/store`: ACA shared store types
+
+## See Also
+
+- [Datalink List Component](/api/components/datalink-list) - Child component managed by this component
+- [VenziaDatalinkService](/api/services/datalink) - Service for opening datalink dialogs
+- [Frontend Extension](/components/frontend-extension) - Overview of the Angular library
