@@ -1,0 +1,172 @@
+---
+title: 'List Datalinks Web Script'
+description: 'Alfresco web script for retrieving datalink configurations'
+---
+
+## Overview
+
+The List Datalinks web script returns all configured datalink definitions from the Alfresco repository. This web script is implemented as a Java-backed web script that retrieves registered datalink configurations.
+
+## Endpoint
+
+<ParamField path="url" type="string">
+  `/aqua/datalink/v1/list`
+</ParamField>
+
+## HTTP Method
+
+`GET`
+
+## Authentication
+
+User authentication is required to access this endpoint.
+
+## Request
+
+### URL Structure
+
+```
+GET /alfresco/service/aqua/datalink/v1/list
+```
+
+No request parameters are required.
+
+## Response
+
+### Success Response
+
+**Status Code:** `200 OK`
+
+**Content-Type:** `application/json`
+
+### Response Schema
+
+Returns a JSON array of datalink configurations. Each datalink object contains:
+
+<ResponseField name="name" type="string">
+  The name of the datalink
+</ResponseField>
+
+<ResponseField name="aspectPropertyName" type="string">
+  The Alfresco aspect property name where datalink data is stored
+</ResponseField>
+
+<ResponseField name="columns" type="array">
+  Array of column definitions for the datalink
+  
+  <ResponseField name="name" type="string">
+    Column name
+  </ResponseField>
+  
+  <ResponseField name="primaryKey" type="boolean">
+    Whether this column is the primary key
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="connectorRest" type="object">
+  REST connector configuration for external data source
+  
+  <ResponseField name="url" type="string">
+    External API endpoint URL
+  </ResponseField>
+  
+  <ResponseField name="searchParam" type="string">
+    Query parameter name for search
+  </ResponseField>
+  
+  <ResponseField name="authentication" type="object">
+    Authentication configuration
+    
+    <ResponseField name="type" type="string">
+      Authentication type (e.g., "basic")
+    </ResponseField>
+    
+    <ResponseField name="username" type="string">
+      Username for basic auth
+    </ResponseField>
+    
+    <ResponseField name="password" type="string">
+      Password for basic auth
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+## Example Response
+
+```json
+[
+  {
+    "name": "Customer Datalink",
+    "aspectPropertyName": "aqua:customerData",
+    "columns": [
+      {
+        "name": "customerId",
+        "primaryKey": true
+      },
+      {
+        "name": "customerName",
+        "primaryKey": false
+      }
+    ],
+    "connectorRest": {
+      "url": "https://api.example.com/customers",
+      "searchParam": "q",
+      "authentication": {
+        "type": "basic",
+        "username": "apiuser",
+        "password": "apipass"
+      }
+    }
+  }
+]
+```
+
+## Implementation Details
+
+The web script is implemented in the Java class `GetListDataLinkWebScript`:
+
+<CodeGroup>
+```java GetListDataLinkWebScript.java
+public class GetListDataLinkWebScript extends AbstractWebScript {
+    
+    private RegisterDataLink registerDataLink;
+    
+    @Override
+    public void execute(WebScriptRequest req, WebScriptResponse res) throws IOException {
+        res.setContentType(Format.JSON.mimetype());
+        res.getWriter().write(registerDataLink.getDataLinks().toString());
+        res.getWriter().flush();
+    }
+}
+```
+
+```xml datalink-list.get.desc.xml
+<webscript>
+    <shortname>Get Datalink List</shortname>
+    <description>return Datalink list</description>
+    <url>/aqua/datalink/v1/list</url>
+    <authentication>user</authentication>
+    <format default="json"></format>
+    <lifecycle>public_api</lifecycle>
+</webscript>
+```
+</CodeGroup>
+
+## Error Responses
+
+<ResponseField name="401" type="error">
+  Unauthorized - User authentication required
+</ResponseField>
+
+<ResponseField name="500" type="error">
+  Internal Server Error - Server error occurred while retrieving datalinks
+</ResponseField>
+
+## Usage
+
+This web script is typically called by the Angular services (`VenziaDatalinkApiService`) to retrieve the list of available datalinks for display in the UI.
+
+## See Also
+
+- [VenziaDatalinkApiService](/api/services/datalink-api) - Angular service that calls this web script
+- [Datalink List Component](/api/components/datalink-list) - UI component that displays datalinks

@@ -1,0 +1,387 @@
+---
+title: Backend Module
+description: Alfresco repository JAR module for Venzia Datalinks
+icon: server
+---
+
+The backend module is an Alfresco Platform JAR extension that provides the server-side functionality for Venzia Datalinks. It includes Java components, web scripts, and Spring-based services that manage datalink registration and schema validation.
+
+## Architecture Overview
+
+The backend module follows the Alfresco Module Package (AMP) structure and integrates with the Alfresco Repository through Spring beans and web scripts.
+
+<CardGroup cols={2}>
+  <Card title="Core Components" icon="cube">
+    Java services for schema validation and datalink registration
+  </Card>
+  <Card title="Web Scripts" icon="code">
+    REST endpoints for frontend integration
+  </Card>
+  <Card title="Spring Configuration" icon="leaf">
+    Dependency injection and bean lifecycle management
+  </Card>
+  <Card title="Schema Validation" icon="shield-check">
+    JSON schema validation for datalink definitions
+  </Card>
+</CardGroup>
+
+## Core Components
+
+### DataLinkComponent
+
+The main module component that initializes when Alfresco starts. It extends `AbstractModuleComponent` and provides access to Alfresco services.
+
+```java DataLinkComponent.java
+package es.venzia.aqua.datalink;
+
+import org.alfresco.repo.module.AbstractModuleComponent;
+import org.alfresco.repo.nodelocator.NodeLocatorService;
+import org.alfresco.service.cmr.repository.NodeRef;
+import org.alfresco.service.cmr.repository.NodeService;
+
+public class DataLinkComponent extends AbstractModuleComponent {
+    private static Log logger = LogFactory.getLog(DataLinkComponent.class);
+
+    private NodeService nodeService;
+    private NodeLocatorService nodeLocatorService;
+
+    @Override
+    protected void executeInternal() throws Throwable {
+        logger.info("DataLinkComponent has been executed");
+    }
+
+    public int childNodesCount(NodeRef nodeRef) {
+        return nodeService.countChildAssocs(nodeRef, true);
+    }
+
+    public NodeRef getCompanyHome() {
+        return nodeLocatorService.getNode("companyhome", null, null);
+    }
+}
+```
+
+**Key Features:**
+- Integrates with Alfresco `NodeService` and `NodeLocatorService`
+- Executes initialization logic on module startup
+- Located at: `es.venzia.aqua.datalink.DataLinkComponent`
+
+### SchemaLoader
+
+Loads and validates JSON schemas for datalink definitions using the Everit JSON Schema library.
+
+```java SchemaLoader.java
+package es.venzia.aqua.datalink.core;
+
+import org.everit.json.schema.Schema;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ResourceLoader;
+
+public class SchemaLoader {
+    @Autowired
+    private ResourceLoader resourceLoader;
+    
+    private String schemaFile;
+    private Schema schema = null;
+    
+    public void init() throws JSONException, IOException {
+        Resource resource = resourceLoader.getResource(schemaFile);
+        String body = IOUtils.toString(resource.getInputStream(), 
+                                       StandardCharsets.UTF_8.name()); 
+        
+        JSONObject jsonSchema = new JSONObject(new JSONTokener(body));
+        
+        org.everit.json.schema.loader.SchemaLoader loader = 
+            org.everit.json.schema.loader.SchemaLoader.builder()
+                .schemaJson(jsonSchema)
+                .draftV7Support()
+                .build();
+        
+        this.schema = loader.load().build();
+        logger.info("Datalink Schema has been registered");
+    }
+}
+```
+
+**Responsibilities:**
+- Loads JSON schema from `classpath:alfresco/schema/datalink.schema.json`
+- Validates schema using JSON Schema Draft v7
+- Provides schema instance to other components
+
+### RegisterDataLink
+
+Registers and validates datalink configurations from JSON files.
+
+```java RegisterDataLink.java
+package es.venzia.aqua.datalink.core;
+
+import org.everit.json.schema.ValidationException;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
+
+public class RegisterDataLink {
+    private SchemaLoader schemaLoader;
+
+    @Value("classpath:alfresco/extension/datalink/datalink-*.json")
+    Resource[] resources;
+
+    private JSONArray dataLinks;
+
+    public void init() throws IOException {
+        dataLinks = new JSONArray();
+
+        for (Resource resource : resources) {
+            try {
+                String jsonData = IOUtils.toString(
+                    resource.getInputStream(), 
+                    StandardCharsets.UTF_8.name()
+                );
+                JSONObject datalinkEntry = new JSONObject(jsonData);
+                schemaLoader.getSchema().validate(datalinkEntry);
+                dataLinks.put(datalinkEntry);
+                logger.info("Datalink " + datalinkEntry.getString("name") + " added");
+            } catch (ValidationException ex) {
+                logger.error(ex);
+            }
+        }
+    }
+
+    public JSONArray getDataLinks() {
+        return dataLinks;
+    }
+}
+```
+
+**Features:**
+- Automatically discovers datalink JSON files matching `datalink-*.json` pattern
+- Validates each datalink against the JSON schema
+- Maintains a registry of valid datalinks
+- Logs validation errors for invalid configurations
+
+## Web Scripts
+
+### GetListDataLinkWebScript
+
+Provides a REST endpoint to retrieve the list of registered datalinks.
+
+```java GetListDataLinkWebScript.java
+package es.venzia.aqua.datalink.webscript;
+
+import org.springframework.extensions.webscripts.AbstractWebScript;
+import org.springframework.extensions.webscripts.WebScriptRequest;
+import org.springframework.extensions.webscripts.WebScriptResponse;
+
+public class GetListDataLinkWebScript extends AbstractWebScript { 
+    private RegisterDataLink registerDataLink;
+
+    public void setRegisterDataLink(RegisterDataLink registerDataLink) {
+        this.registerDataLink = registerDataLink;
+    }
+
+    @Override
+    public void execute(WebScriptRequest req, WebScriptResponse res) 
+            throws IOException {
+        res.setContentType(Format.JSON.mimetype());
+        res.getWriter().write(registerDataLink.getDataLinks().toString());
+        res.getWriter().flush();
+        
+        if(logger.isDebugEnabled()) {
+            logger.debug("JSON DataLink");
+            logger.debug(registerDataLink.getDataLinks().toString());
+        }
+    }
+}
+```
+
+**Endpoint Details:**
+- **URL Pattern:** `/alfresco/service/aqua/datalink/v1/list`
+- **Method:** GET
+- **Response:** JSON array of datalink configurations
+- **Authentication:** Requires Alfresco authentication
+
+<Note>
+The web script is registered in `webscript-context.xml` and mapped to the URL pattern defined in `datalink-list.get.desc.xml`.
+</Note>
+
+## Spring Configuration
+
+### Service Context
+
+The `service-context.xml` file defines the core Spring beans:
+
+```xml service-context.xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+          http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+
+    <bean id="schemaLoader" 
+          class="es.venzia.aqua.datalink.core.SchemaLoader" 
+          init-method="init">
+        <property name="schemaFile" 
+                  value="classpath:alfresco/schema/datalink.schema.json" />
+    </bean>
+
+    <bean id="registerDataLink" 
+          class="es.venzia.aqua.datalink.core.RegisterDataLink" 
+          init-method="init" 
+          depends-on="schemaLoader">
+        <property name="schemaLoader" ref="schemaLoader" />
+    </bean>
+
+    <bean id="es.venzia.aqua.datalink.DataLinkComponent" 
+          class="es.venzia.aqua.datalink.DataLinkComponent" 
+          parent="module.baseComponent">
+        <property name="moduleId" value="aqua-datalink-platform-jar" />
+        <property name="name" value="DataLinkComponent" />
+        <property name="nodeService" ref="NodeService" />
+        <property name="nodeLocatorService" ref="nodeLocatorService" />
+    </bean>
+</beans>
+```
+
+### WebScript Context
+
+The `webscript-context.xml` file registers web script beans:
+
+```xml webscript-context.xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+          http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+
+    <bean id="webscript.venzia.datalink.v1.datalink-list.get"
+          class="es.venzia.aqua.datalink.webscript.GetListDataLinkWebScript"
+          parent="webscript">
+        <property name="registerDataLink" ref="registerDataLink" />
+    </bean>
+</beans>
+```
+
+## Module Structure
+
+```
+venzia-datalink/
+├── pom.xml                          # Maven build configuration
+├── src/main/
+│   ├── java/es/venzia/aqua/datalink/
+│   │   ├── DataLinkComponent.java   # Main module component
+│   │   ├── core/
+│   │   │   ├── SchemaLoader.java    # Schema validation
+│   │   │   └── RegisterDataLink.java # Datalink registry
+│   │   └── webscript/
+│   │       └── GetListDataLinkWebScript.java
+│   └── resources/
+│       └── alfresco/
+│           ├── extension/
+│           │   ├── datalink/        # Datalink JSON configs
+│           │   └── templates/webscripts/
+│           ├── module/aqua-datalink/
+│           │   ├── context/
+│           │   │   ├── service-context.xml
+│           │   │   ├── webscript-context.xml
+│           │   │   └── bootstrap-context.xml
+│           │   └── model/
+│           │       └── datalink-model.xml
+│           └── schema/
+│               └── datalink.schema.json
+└── docker/                          # Docker configuration
+```
+
+## Building and Deployment
+
+<Tabs>
+  <Tab title="Maven Build">
+    Build the JAR module using Maven:
+
+    ```bash
+    mvn clean install
+    ```
+
+    This creates the JAR file in `target/` directory.
+  </Tab>
+  
+  <Tab title="AMP Package">
+    To create an Alfresco Module Package (AMP):
+
+    ```bash
+    mvn clean package -DskipTests
+    ```
+
+    The AMP file is generated in the `target/` directory.
+  </Tab>
+  
+  <Tab title="Docker Deployment">
+    Deploy using Docker:
+
+    ```bash
+    ./run.sh build_start
+    ```
+
+    This builds and starts the Alfresco container with the module installed.
+  </Tab>
+</Tabs>
+
+## Integration Points
+
+### Alfresco Services
+
+The module integrates with core Alfresco services:
+
+- **NodeService**: Manages repository nodes and associations
+- **NodeLocatorService**: Locates special nodes like Company Home
+- **WebScript Framework**: Provides REST API endpoints
+
+### Resource Locations
+
+<CodeGroup>
+```text Schema Files
+classpath:alfresco/schema/datalink.schema.json
+```
+
+```text Datalink Configurations
+classpath:alfresco/extension/datalink/datalink-*.json
+```
+
+```text Web Script Descriptors
+alfresco/extension/templates/webscripts/venzia/datalink/v1/
+```
+</CodeGroup>
+
+## API Endpoints
+
+### List Datalinks
+
+Retrieve all registered datalinks:
+
+```http
+GET /alfresco/service/aqua/datalink/v1/list
+Content-Type: application/json
+```
+
+**Response:**
+```json
+[
+  {
+    "name": "employee-search",
+    "endpoint": "http://localhost:3005/api/v1/public/employees/search",
+    "fields": [...]
+  }
+]
+```
+
+<Note>
+This endpoint is consumed by the [Frontend Extension](/components/frontend-extension) to populate datalink configurations in the UI.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Frontend Extension" icon="browser" href="/components/frontend-extension">
+    Learn about the Angular library that consumes these APIs
+  </Card>
+  <Card title="Database Mock" icon="database" href="/components/database-mock">
+    Set up the Node.js test server for development
+  </Card>
+</CardGroup>

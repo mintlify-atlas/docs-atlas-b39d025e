@@ -1,0 +1,477 @@
+---
+title: Installation
+description: Step-by-step guide to install and configure Venzia Datalinks components
+---
+
+## Prerequisites
+
+Before installing Venzia Datalinks, ensure you have the following prerequisites:
+
+<CardGroup cols={2}>
+  <Card title="Java Development Kit" icon="java">
+    JDK 11, 17, or later for building the backend module
+  </Card>
+  <Card title="Maven" icon="box">
+    Maven 3.x for building the Alfresco module
+  </Card>
+  <Card title="Node.js" icon="node">
+    Node.js 18.x for running the frontend and database mock
+  </Card>
+  <Card title="Docker" icon="docker">
+    Docker and Docker Compose for running Alfresco services
+  </Card>
+</CardGroup>
+
+<Note>
+  The project uses Alfresco SDK 4.10 and is compatible with Alfresco Content Services 23.4.1.
+</Note>
+
+## Project Structure
+
+The Venzia Datalinks project consists of three main folders:
+
+```
+venzia-datalinks/
+├── app/                    # Alfresco Content App with datalinks extension
+│   └── projects/venzia-datalink/  # ACA datalinks extension project
+├── db mock/                # Node.js server for database simulation
+└── venzia-datalink/        # Alfresco SDK backend module
+    ├── src/main/docker/datalink/  # Datalink configuration files
+    └── pom.xml             # Maven project configuration
+```
+
+## Installation Steps
+
+Follow these steps to install all three components of Venzia Datalinks:
+
+<Steps>
+  <Step title="Install Backend Module (Alfresco Repository)">
+    Navigate to the `venzia-datalink` directory and build the project:
+
+    ```bash
+    cd venzia-datalink
+    mvn clean install
+    ```
+
+    This compiles the backend module with:
+    - **Group ID**: `es.venzia`
+    - **Artifact ID**: `aqua-datalink`
+    - **Version**: `3.0.0`
+    - **Alfresco Platform**: `23.4.1`
+
+    <Accordion title="Maven Build Details">
+      The build process:
+      1. Compiles the JAR module
+      2. Validates datalink configuration files
+      3. Prepares Docker resources
+      4. Packages the module for deployment
+
+      Key dependencies:
+      - `alfresco-remote-api` (provided scope)
+      - `everit-json-schema` for JSON validation
+      - JUnit and Mockito for testing
+    </Accordion>
+
+    Start the Alfresco environment:
+
+    <CodeGroup>
+    ```bash Linux/Mac
+    ./run.sh build_start
+    ```
+
+    ```bash Windows
+    .\run.bat build_start
+    ```
+    </CodeGroup>
+
+    This launches a dockerized environment with:
+    - Alfresco Content Service
+    - Alfresco Share (optional)
+    - Alfresco Search Service
+    - PostgreSQL database
+
+    <Note>
+      The environment runs on the following ports:
+      - **ACS**: `localhost:8080`
+      - **Share**: `localhost:8180`
+      - **PostgreSQL**: `5555`
+      - **Debug**: `8888`
+    </Note>
+
+    Access Alfresco at `http://localhost:8080/alfresco/` with default credentials:
+    - **Username**: `admin`
+    - **Password**: `admin`
+  </Step>
+
+  <Step title="Install Database Mock Server">
+    Navigate to the `db mock` directory and install dependencies:
+
+    ```bash
+    cd "db mock"
+    npm install
+    ```
+
+    Start the mock database server:
+
+    ```bash
+    npm start
+    ```
+
+    The server will start on `http://localhost:3005` and provides two endpoints:
+
+    <Accordion title="Available Endpoints">
+      **Public Endpoint** (No Authentication):
+      ```
+      GET http://localhost:3005/api/v1/public/employees/search?query=<search_term>
+      ```
+
+      Returns employee data:
+      ```json
+      [
+        {
+          "emp_no": 1,
+          "first_name": "Adolfo",
+          "last_name": "Herrero",
+          "hire_date": "2005-10-02"
+        }
+      ]
+      ```
+
+      **Private Endpoint** (Basic Auth):
+      ```
+      GET http://localhost:3005/api/v1/private/departments/search?query=<search_term>
+      Authorization: Basic dXNlcjIwMTk6ZzNuM3I0bA==
+      ```
+
+      Credentials:
+      - Username: `user2019`
+      - Password: `g3n3r4l`
+
+      Returns department data:
+      ```json
+      [
+        {
+          "dept_no": 1,
+          "dept_name": "Recursos Humanos"
+        }
+      ]
+      ```
+    </Accordion>
+
+    <Warning>
+      The database mock is for development and testing only. For production, replace with your actual database REST API endpoints.
+    </Warning>
+  </Step>
+
+  <Step title="Install Alfresco Content App Frontend">
+    Navigate to the `app` directory:
+
+    ```bash
+    cd app
+    ```
+
+    Create a `.env` file in the app root directory:
+
+    ```bash .env
+    BASE_URL="http://localhost:8080"
+    ```
+
+    Replace `http://localhost:8080` with your Alfresco repository endpoint if different.
+
+    Install dependencies:
+
+    ```bash
+    npm install
+    ```
+
+    <Accordion title="Frontend Dependencies">
+      Key dependencies include:
+      - **Alfresco ADF**: `7.0.0-alpha.7`
+        - `@alfresco/adf-content-services`
+        - `@alfresco/adf-core`
+        - `@alfresco/adf-extensions`
+      - **Angular**: `16.2.9`
+      - **NgRx**: `16.3.0` (for state management)
+      - **Node.js**: `18.x`
+      - **npm**: `9.x`
+
+      The app is compatible with ACS 23.4.
+    </Accordion>
+
+    Start the development server:
+
+    ```bash
+    npm start
+    ```
+
+    The Alfresco Content App will be available at `http://localhost:4200`.
+
+    <Note>
+      The datalinks extension is located in `app/projects/venzia-datalink` and is automatically loaded by ACA.
+    </Note>
+  </Step>
+
+  <Step title="Verify Installation">
+    Confirm all services are running:
+
+    <Tabs>
+      <Tab title="Alfresco Repository">
+        Visit `http://localhost:8080/alfresco/` and log in with `admin/admin`.
+
+        Verify the datalink module is loaded by checking:
+        ```
+        http://localhost:8080/alfresco/s/venzia/datalink/v1/datalinks
+        ```
+
+        This should return the list of available datalinks.
+      </Tab>
+
+      <Tab title="Database Mock">
+        Test the mock database endpoints:
+
+        ```bash
+        # Test employee endpoint
+        curl http://localhost:3005/api/v1/public/employees/search
+
+        # Test department endpoint (with auth)
+        curl -u user2019:g3n3r4l http://localhost:3005/api/v1/private/departments/search
+        ```
+      </Tab>
+
+      <Tab title="ACA Frontend">
+        1. Open `http://localhost:4200` in your browser
+        2. Log in with Alfresco credentials (`admin/admin`)
+        3. Upload a test document
+        4. Right-click on the document
+        5. Verify "Edit Datalink" option appears in the context menu
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+## Configuration
+
+### Datalink Configuration Files
+
+Datalink configurations are stored in:
+```
+venzia-datalink/src/main/docker/datalink/
+```
+
+Two example datalinks are included:
+
+<CodeGroup>
+```json datalink-employee.json
+{
+  "name": "employee",
+  "title": "Company Employee",
+  "description": "Example to datalink demo",
+  "aspectName": "dlnk:employee",
+  "aspectPropertyName": "dlnk:employee",
+  "order": 10,
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/public/employees/search",
+    "authentication": {
+      "type": "none",
+      "username": "",
+      "password": ""
+    },
+    "searchParam": "query"
+  },
+  "columns": [
+    {
+      "primaryKey": true,
+      "name": "emp_no",
+      "label": "Id",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "primaryKey": false,
+      "name": "first_name",
+      "label": "First Name",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "last_name",
+      "label": "Last Name",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "hire_date",
+      "label": "Hire Date",
+      "type": "date",
+      "format": "dd/MM/yyyy"
+    }
+  ]
+}
+```
+
+```json datalink-department.json
+{
+  "name": "departments",
+  "title": "Company Departments",
+  "description": "Example to datalink demo",
+  "aspectName": "dlnk:departm",
+  "aspectPropertyName": "dlnk:departm",
+  "order": 20,
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/private/departments/search",
+    "authentication": {
+      "type": "basic",
+      "username": "user2019",
+      "password": "g3n3r4l"
+    },
+    "searchParam": "query"
+  },
+  "columns": [
+    {
+      "primaryKey": true,
+      "name": "dept_no",
+      "label": "Id",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "primaryKey": false,
+      "name": "dept_name",
+      "label": "Name",
+      "type": "text"
+    }
+  ]
+}
+```
+</CodeGroup>
+
+### Content Model
+
+The datalink content model is defined in:
+```
+venzia-datalink/src/main/resources/alfresco/module/aqua-datalink/model/datalink-model.xml
+```
+
+<Accordion title="View Content Model">
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<model name="dlnk:venzia" xmlns="http://www.alfresco.org/model/dictionary/1.0">
+  <description>Custom Model of Alfresco DataLink</description>
+  <author>Venzia</author>
+  <version>1.0</version>
+
+  <imports>
+    <import uri="http://www.alfresco.org/model/dictionary/1.0" prefix="d"/>
+    <import uri="http://www.alfresco.org/model/content/1.0" prefix="cm"/>
+  </imports>
+
+  <namespaces>
+    <namespace uri="http://venzia.es/model/datalink/1.0" prefix="dlnk"/>
+  </namespaces>
+
+  <aspects>
+    <aspect name="dlnk:employee">
+      <title>Employee</title>
+      <properties>
+        <property name="dlnk:employee">
+          <type>d:text</type>
+          <index enabled="true">
+            <atomic>true</atomic>
+            <stored>false</stored>
+            <tokenised>false</tokenised>
+          </index>
+        </property>
+      </properties>
+    </aspect>
+    
+    <aspect name="dlnk:departm">
+      <title>Departm</title>
+      <properties>
+        <property name="dlnk:departm">
+          <type>d:text</type>
+          <index enabled="true">
+            <atomic>true</atomic>
+            <stored>false</stored>
+            <tokenised>false</tokenised>
+          </index>
+        </property>
+      </properties>
+    </aspect>
+  </aspects>
+</model>
+```
+</Accordion>
+
+## Docker Commands
+
+The `run.sh` (or `run.bat` on Windows) script in the `venzia-datalink` directory provides several useful commands:
+
+<Accordion title="Available Docker Commands">
+  | Command | Description |
+  |---------|-------------|
+  | `build_start` | Build the project, recreate ACS docker image, start environment, and tail logs |
+  | `build_start_it_supported` | Build with IT dependencies, start environment, and tail logs |
+  | `start` | Start the dockerised environment without building |
+  | `stop` | Stop the dockerised environment |
+  | `purge` | Stop containers and delete all persistent data (volumes) |
+  | `tail` | Tail the logs of all containers |
+  | `reload_acs` | Build ACS module, recreate ACS image, and restart ACS container |
+  | `build_test` | Build, start environment, run integration tests, and stop |
+  | `test` | Execute integration tests (environment must be running) |
+</Accordion>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Port Already in Use">
+    If ports 8080, 8180, 3005, or 4200 are already in use:
+
+    1. Stop conflicting services
+    2. Or modify the port configurations:
+       - Backend: Edit `pom.xml` properties
+       - Database mock: Edit `index.js` port constant
+       - Frontend: Use `npm start -- --port=<new-port>`
+  </Accordion>
+
+  <Accordion title="Maven Build Fails">
+    Common issues:
+    - Ensure Java 11+ is installed: `java -version`
+    - Clear Maven cache: `mvn clean`
+    - Check internet connection for dependency downloads
+    - Verify Maven settings for Alfresco repositories
+  </Accordion>
+
+  <Accordion title="Docker Services Won't Start">
+    1. Ensure Docker is running: `docker ps`
+    2. Check Docker resources (memory, CPU)
+    3. Try purging and restarting:
+       ```bash
+       ./run.sh purge
+       ./run.sh build_start
+       ```
+  </Accordion>
+
+  <Accordion title="ACA Can't Connect to Repository">
+    1. Verify the `.env` file has the correct `BASE_URL`
+    2. Check that Alfresco is running on the specified URL
+    3. Check browser console for CORS errors
+    4. Verify you can access `http://localhost:8080/alfresco/`
+  </Accordion>
+
+  <Accordion title="Datalinks Not Appearing">
+    1. Check that datalink JSON files are in `src/main/docker/datalink/`
+    2. Verify JSON syntax is valid
+    3. Check Alfresco logs for configuration errors
+    4. Restart ACS container: `./run.sh reload_acs`
+    5. Verify webscript response:
+       ```bash
+       curl http://localhost:8080/alfresco/s/venzia/datalink/v1/datalinks
+       ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+  Learn how to create your first datalink and link document properties to database values
+</Card>

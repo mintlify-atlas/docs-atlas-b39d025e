@@ -1,0 +1,479 @@
+---
+title: 'Architecture Overview'
+description: 'Understanding the Venzia Datalinks architecture and component interactions'
+icon: 'diagram-project'
+---
+
+## System Architecture
+
+Venzia Datalinks is built as a comprehensive Alfresco Content Services add-on with three main architectural layers:
+
+<Steps>
+  <Step title="Backend Layer (Java)">
+    Alfresco Repository AMP that handles datalink registration, validation, and REST API endpoints
+  </Step>
+  <Step title="Frontend Layer (Angular)">
+    Alfresco Content App extension providing UI components and state management
+  </Step>
+  <Step title="Integration Layer">
+    REST connector framework for external data sources with authentication support
+  </Step>
+</Steps>
+
+## Backend Architecture
+
+### Core Components
+
+The backend is organized into three main packages:
+
+#### 1. DataLink Component
+
+The main module component that initializes on Alfresco startup:
+
+```java
+package es.venzia.aqua.datalink;
+
+public class DataLinkComponent extends AbstractModuleComponent {
+    private NodeService nodeService;
+    private NodeLocatorService nodeLocatorService;
+
+    @Override
+    protected void executeInternal() throws Throwable {
+        logger.info("DataLinkComponent has been executed");
+    }
+}
+```
+
+Configured in `service-context.xml`:
+
+```xml
+<bean id="es.venzia.aqua.datalink.DataLinkComponent" 
+      class="es.venzia.aqua.datalink.DataLinkComponent" 
+      parent="module.baseComponent">
+    <property name="moduleId" value="aqua-datalink-platform-jar" />
+    <property name="nodeService" ref="NodeService" />
+    <property name="nodeLocatorService" ref="nodeLocatorService" />
+</bean>
+```
+
+#### 2. Schema Validation (SchemaLoader)
+
+Loads and validates datalink configurations against JSON Schema:
+
+```java
+package es.venzia.aqua.datalink.core;
+
+public class SchemaLoader {
+    private String schemaFile;
+    private Schema schema = null;
+    
+    public void init() throws JSONException, IOException {
+        Resource resource = resourceLoader.getResource(schemaFile);
+        String body = IOUtils.toString(resource.getInputStream(), 
+                                       StandardCharsets.UTF_8.name()); 
+        
+        JSONObject jsonSchema = new JSONObject(new JSONTokener(body));
+        
+        org.everit.json.schema.loader.SchemaLoader loader = 
+            org.everit.json.schema.loader.SchemaLoader.builder()
+                .schemaJson(jsonSchema)
+                .draftV7Support()
+                .build();
+        
+        this.schema = loader.load().build();
+        logger.info("Datalink Schema has been registered");
+    }
+}
+```
+
+<Note>
+The schema is loaded from `classpath:alfresco/schema/datalink.schema.json` and validates all datalink configuration files on startup.
+</Note>
+
+#### 3. DataLink Registration (RegisterDataLink)
+
+Scans and registers all datalink configurations:
+
+```java
+package es.venzia.aqua.datalink.core;
+
+public class RegisterDataLink {
+    private SchemaLoader schemaLoader;
+    
+    @Value("classpath:alfresco/extension/datalink/datalink-*.json")
+    Resource[] resources;
+    
+    private JSONArray dataLinks;
+    
+    public void init() throws IOException {
+        dataLinks = new JSONArray();
+        
+        for (Resource resource : resources) {
+            try {
+                String jsonData = IOUtils.toString(
+                    resource.getInputStream(), 
+                    StandardCharsets.UTF_8.name()
+                );
+                JSONObject datalinkEntry = new JSONObject(jsonData);
+                schemaLoader.getSchema().validate(datalinkEntry);
+                dataLinks.put(datalinkEntry);
+                logger.info("Datalink " + datalinkEntry.getString("name") 
+                           + " added");
+            } catch (ValidationException ex) {
+                logger.error(ex);
+            }
+        }
+    }
+}
+```
+
+<Warning>
+All datalink JSON files must match the pattern `datalink-*.json` in the `alfresco/extension/datalink/` directory to be automatically discovered.
+</Warning>
+
+### Web Script Layer
+
+The REST API endpoint exposes registered datalinks to the frontend:
+
+```java
+package es.venzia.aqua.datalink.webscript;
+
+public class GetListDataLinkWebScript extends AbstractWebScript {
+    private RegisterDataLink registerDataLink;
+    
+    @Override
+    public void execute(WebScriptRequest req, WebScriptResponse res) 
+            throws IOException {
+        res.setContentType(Format.JSON.mimetype());
+        res.getWriter().write(registerDataLink.getDataLinks().toString());
+        res.getWriter().flush();
+    }
+}
+```
+
+Configured in `webscript-context.xml`:
+
+```xml
+<bean id="webscript.venzia.datalink.v1.datalink-list.get"
+      class="es.venzia.aqua.datalink.webscript.GetListDataLinkWebScript"
+      parent="webscript">
+    <property name="registerDataLink" ref="registerDataLink" />
+</bean>
+```
+
+Endpoint: `GET /alfresco/service/aqua/datalink/v1/list`
+
+## Frontend Architecture
+
+### Angular Module Structure
+
+The frontend is organized as an Angular standalone library:
+
+```typescript
+@NgModule({
+  declarations: [DatalinkDialogComponent, AddDatalinkDialogComponent],
+  imports: [
+    VenziaDatalinkStoreModule,
+    TranslateModule,
+    MatDialogModule,
+    MatIconModule,
+    DatalinkListComponent,
+    DatalinkAddPanelComponent,
+    MatButtonModule
+  ],
+  providers: [provideExtensionConfig(['venzia-datalink.plugin.json'])]
+})
+export class VenziaDatalinkModule {
+  constructor(translation: TranslationService, extensions: ExtensionService) {
+    translation.addTranslationFolder('datalink', 'assets/datalink');
+    
+    extensions.setEvaluators({
+      'datalink.canDatalink': rules.canDatalink
+    });
+  }
+}
+```
+
+### Service Layer
+
+#### VenziaDatalinkApiService
+
+Communicates with Alfresco backend:
+
+```typescript
+@Injectable({ providedIn: 'root' })
+export class VenziaDatalinkApiService {
+  constructor(
+    private apiService: AlfrescoApiService, 
+    private logService: LogService
+  ) {}
+  
+  loadDataLink(): Observable<any> {
+    return from(
+      this.executeWebScript('GET', 'aqua/datalink/v1/list', 
+                           null, null, 'service', null)
+    ).pipe(
+      catchError((err) => this.handleError(err))
+    );
+  }
+  
+  private executeWebScript(
+    httpMethod: string,
+    scriptPath: string,
+    scriptArgs?: any,
+    contextRoot?: string,
+    servicePath?: string,
+    postBody?: any
+  ): Promise<any> {
+    return this.apiService
+      .getInstance()
+      .contentClient.callApi(
+        scriptPath, httpMethod, {}, scriptArgs, {}, {}, 
+        postBody, contentTypes, accepts, null, 
+        contextRoot + '/' + servicePath
+      );
+  }
+}
+```
+
+#### VenziaDatalinkRestService
+
+Handles external REST API calls with authentication:
+
+```typescript
+@Injectable({ providedIn: 'root' })
+export class VenziaDatalinkRestService {
+  constructor(private http: HttpClient) {}
+  
+  callApi(endpoint: string, params?: any, authdata?: string): Observable<any> {
+    const httpOptions = { 
+      headers: new HttpHeaders({ 
+        'Content-Type': 'application/json', 
+        Authorization: `Basic ${authdata}` 
+      }), 
+      params: {} 
+    };
+    
+    if (params) {
+      httpOptions.params = params;
+    }
+    
+    return this.http.get(endpoint, httpOptions)
+      .pipe(map(this.extractData));
+  }
+}
+```
+
+### State Management (NgRx)
+
+Datalinks use NgRx for state management:
+
+```typescript
+@Injectable()
+export class VenziaDatalinkEffects {
+  dataLinkDoc$ = createEffect(
+    () => this.actions$.pipe(
+      ofType<DataLinkOpenAction>(VenziaDatalinkActionTypes.DatalinkOpen),
+      map((action) => {
+        if (action.payload) {
+          this.venziaDatalinkService.dataLinkDoc(action.payload);
+        } else {
+          this.store
+            .select(getAppSelection)
+            .pipe(take(1))
+            .subscribe((selection) => {
+              if (!selection.isEmpty) {
+                this.venziaDatalinkService.dataLinkDoc(selection.first);
+              }
+            });
+        }
+      })
+    ),
+    { dispatch: false }
+  );
+}
+```
+
+### Component Hierarchy
+
+<CodeGroup>
+```typescript DataLinkManagerComponent
+@Component({
+  selector: 'aqua-datalink-manager',
+  templateUrl: './datalink-manager.component.html',
+  standalone: true
+})
+export class DataLinkManagerComponent {
+  @Input() nodeId: string;
+  @ViewChild('datalinkList') datalinkList: DatalinkListComponent;
+  
+  openAddDatalinkDialog(event: Event) {
+    this.datalinkList.openAddDatalinkDialog(event);
+  }
+  
+  removeSelectionRows(event: Event) {
+    this.datalinkList.deleteSelectRows(event);
+  }
+}
+```
+
+```typescript DatalinkListComponent
+@Component({
+  selector: 'aqua-datalink-list',
+  templateUrl: './datalink-list.component.html',
+  standalone: true
+})
+export class DatalinkListComponent implements OnChanges {
+  @Input() nodeId = '';
+  @Output() select = new EventEmitter<any>();
+  
+  rows: any = {};
+  datalinkList: any;
+  
+  ngOnChanges() {
+    this.dlnkApiService.loadDataLink().subscribe((data) => {
+      this.datalinkList = data;
+      this.loadNodeInfo(this.nodeId);
+    });
+  }
+}
+```
+</CodeGroup>
+
+## Data Flow
+
+### Initialization Flow
+
+<Steps>
+  <Step title="Alfresco Startup">
+    `SchemaLoader` loads JSON schema → `RegisterDataLink` scans and validates datalink configurations → `DataLinkComponent` executes
+  </Step>
+  <Step title="Frontend Load">
+    `VenziaDatalinkModule` registers extension evaluators → User opens datalink dialog
+  </Step>
+  <Step title="Data Retrieval">
+    `VenziaDatalinkApiService.loadDataLink()` calls `/aqua/datalink/v1/list` → Backend returns all registered datalinks
+  </Step>
+  <Step title="Display">
+    `DatalinkListComponent` renders tabs for each datalink → Shows linked data from node properties
+  </Step>
+</Steps>
+
+### Search and Link Flow
+
+<Steps>
+  <Step title="User Action">
+    User clicks "Add Datalink" button in dialog
+  </Step>
+  <Step title="Search Dialog">
+    `VenziaDatalinkSearchDialogService` opens search dialog with selected datalink configuration
+  </Step>
+  <Step title="External API Call">
+    `VenziaDatalinkRestService.callApi()` calls the configured REST endpoint with authentication
+  </Step>
+  <Step title="User Selection">
+    User selects records from search results
+  </Step>
+  <Step title="Property Update">
+    Selected data is serialized to JSON → `NodesApiService.updateNode()` saves to aspect property
+  </Step>
+  <Step title="Reload">
+    Dialog reloads to display newly linked data
+  </Step>
+</Steps>
+
+## Content Model
+
+Datalinks use Alfresco aspects to store linked data:
+
+```xml
+<model name="dlnk:venzia" xmlns="http://www.alfresco.org/model/dictionary/1.0">
+  <namespaces>
+    <namespace uri="http://venzia.es/model/datalink/1.0" prefix="dlnk"/>
+  </namespaces>
+  
+  <aspects>
+    <aspect name="dlnk:employee">
+      <title>Employee</title>
+      <properties>
+        <property name="dlnk:employee">
+          <type>d:text</type>
+          <index enabled="true">
+            <atomic>true</atomic>
+            <stored>false</stored>
+            <tokenised>false</tokenised>
+          </index>
+        </property>
+      </properties>
+    </aspect>
+  </aspects>
+</model>
+```
+
+<Note>
+Each datalink requires a corresponding aspect and text property in the content model. The property stores the linked data as JSON.
+</Note>
+
+## Configuration Schema
+
+All datalink configurations are validated against this schema:
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["name", "aspectName", "aspectPropertyName", "connectorRest", "order"],
+  "properties": {
+    "name": { "type": "string" },
+    "aspectName": { "type": "string" },
+    "aspectPropertyName": { "type": "string" },
+    "order": { "type": "integer" },
+    "connectorRest": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "authentication": {
+          "type": "object",
+          "properties": {
+            "type": { "enum": ["none", "basic"] },
+            "username": { "type": "string" },
+            "password": { "type": "string" }
+          }
+        },
+        "searchParam": { "type": "string" }
+      }
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "required": ["primaryKey", "name", "type"],
+        "properties": {
+          "primaryKey": { "type": "boolean" },
+          "name": { "type": "string" },
+          "label": { "type": "string" },
+          "type": { "type": "string" },
+          "hidden": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}
+```
+
+## Key Design Patterns
+
+### Dependency Injection
+All backend services use Spring dependency injection for loose coupling and testability.
+
+### Observable Pattern
+The frontend uses RxJS observables throughout for reactive data flow and asynchronous operations.
+
+### Component Communication
+Parent-child component communication uses `@Input()` and `@Output()` decorators with EventEmitters.
+
+### State Management
+NgRx provides centralized state management with actions, effects, and reducers.
+
+<Tip>
+The architecture is designed for extensibility. New datalink types can be added by creating JSON configuration files without modifying code.
+</Tip>

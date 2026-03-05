@@ -1,0 +1,144 @@
+---
+title: Configuration Overview
+description: Understanding Venzia Datalinks configuration architecture and file structure
+---
+
+## Introduction
+
+Venzia Datalinks uses a JSON-based configuration system to define external data sources and their integration with Alfresco Content Services. Each datalink connects a REST API endpoint to an Alfresco content model aspect, enabling documents to be linked with external entities.
+
+## Configuration Components
+
+A complete Venzia Datalinks implementation consists of three key components:
+
+<CardGroup cols={3}>
+  <Card title="Datalink JSON Files" icon="file-code" href="/configuration/datalink-json">
+    Define data source connections, REST endpoints, and column mappings
+  </Card>
+  <Card title="Content Models" icon="diagram-project" href="/configuration/content-models">
+    Alfresco XML models that define aspects and properties for linked data
+  </Card>
+  <Card title="REST Connectors" icon="plug" href="/configuration/rest-connectors">
+    HTTP client configuration including authentication and API integration
+  </Card>
+</CardGroup>
+
+## File Locations
+
+### Datalink JSON Configuration
+
+Datalink definition files are stored in the deployment directory:
+
+```
+/datalink/
+├── datalink-employee.json
+├── datalink-department.json
+└── [custom-datalink].json
+```
+
+<Note>
+In Docker deployments, these files are typically mounted at `/usr/local/tomcat/datalink/` or configured via the `datalink.path` system property.
+</Note>
+
+### Content Model XML
+
+Alfresco content models are deployed as AMP module resources:
+
+```
+alfresco/module/aqua-datalink/model/
+└── datalink-model.xml
+```
+
+## Configuration Workflow
+
+<Steps>
+  <Step title="Define Content Model">
+    Create Alfresco aspects in your custom content model XML file. Each aspect represents an external entity type (employee, department, etc.).
+  </Step>
+  
+  <Step title="Create Datalink JSON">
+    Define the datalink configuration file that maps the aspect to a REST API endpoint and specifies column definitions.
+  </Step>
+  
+  <Step title="Configure REST Connector">
+    Set up the REST API connection details including URL, authentication, and search parameters.
+  </Step>
+  
+  <Step title="Deploy and Test">
+    Deploy the configuration files and verify the datalink appears in the Alfresco Share document details page.
+  </Step>
+</Steps>
+
+## Configuration Validation
+
+Venzia Datalinks validates configuration files on startup:
+
+- **JSON Schema**: All datalink JSON files must conform to the expected schema
+- **Aspect Reference**: The `aspectName` must exist in the deployed content model
+- **Primary Key**: At least one column must be marked as `primaryKey: true`
+- **REST Endpoint**: The connector URL must be accessible and return valid JSON
+
+<Warning>
+Invalid configurations will prevent the datalink from loading. Check the Alfresco logs for detailed error messages.
+</Warning>
+
+## Example: Employee Datalink
+
+Here's how the three components work together for an employee datalink:
+
+### 1. Content Model Aspect
+
+```xml
+<aspect name="dlnk:employee">
+  <title>Employee</title>
+  <properties>
+    <property name="dlnk:employee">
+      <type>d:text</type>
+    </property>
+  </properties>
+</aspect>
+```
+
+### 2. Datalink JSON Configuration
+
+```json
+{
+  "name": "employee",
+  "aspectName": "dlnk:employee",
+  "aspectPropertyName": "dlnk:employee",
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/public/employees/search"
+  }
+}
+```
+
+### 3. Document Linkage
+
+When a user applies the `dlnk:employee` aspect to a document, the Venzia Datalinks widget appears, allowing them to search and link employees from the external REST API.
+
+## System Properties
+
+Configure Venzia Datalinks behavior using Alfresco global properties:
+
+<ParamField path="datalink.path" type="string" default="/usr/local/tomcat/datalink/">
+  Directory path containing datalink JSON configuration files
+</ParamField>
+
+<ParamField path="datalink.enabled" type="boolean" default="true">
+  Enable or disable the Venzia Datalinks module globally
+</ParamField>
+
+<ParamField path="datalink.cache.ttl" type="integer" default="300">
+  Cache time-to-live in seconds for REST API responses
+</ParamField>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Datalink JSON Schema" icon="brackets-curly" href="/configuration/datalink-json">
+    Complete reference for all JSON configuration options
+  </Card>
+  <Card title="REST Connector Setup" icon="server" href="/configuration/rest-connectors">
+    Configure authentication and API integration
+  </Card>
+</CardGroup>

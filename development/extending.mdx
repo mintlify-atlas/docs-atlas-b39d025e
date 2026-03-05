@@ -1,0 +1,825 @@
+---
+title: 'Extending the Add-on'
+description: 'Guide to extending Venzia Datalinks with custom features and functionality'
+icon: 'puzzle-piece'
+---
+
+## Overview
+
+Venzia Datalinks is built with extensibility in mind. This guide covers common extension scenarios and how to implement them.
+
+## Extension Points
+
+### Backend Extensions
+
+<CardGroup cols={2}>
+  <Card title="Custom Web Scripts" icon="code">
+    Add new REST API endpoints for custom functionality
+  </Card>
+  <Card title="Content Model" icon="shapes">
+    Define new aspects and properties for different data types
+  </Card>
+  <Card title="Service Beans" icon="microchip">
+    Create Spring beans for business logic
+  </Card>
+  <Card title="Validators" icon="shield-check">
+    Implement custom JSON schema validators
+  </Card>
+</CardGroup>
+
+### Frontend Extensions
+
+<CardGroup cols={2}>
+  <Card title="Custom Components" icon="layer-group">
+    Build new UI components for datalink interactions
+  </Card>
+  <Card title="NgRx Actions" icon="bolt">
+    Add state management for custom features
+  </Card>
+  <Card title="Services" icon="gears">
+    Create Angular services for new functionality
+  </Card>
+  <Card title="Evaluators" icon="list-check">
+    Define rules for showing/hiding features
+  </Card>
+</CardGroup>
+
+## Adding Custom Web Scripts
+
+Create new REST endpoints to extend backend functionality.
+
+### 1. Create Web Script Class
+
+```java
+package es.venzia.aqua.datalink.webscript;
+
+import es.venzia.aqua.datalink.core.RegisterDataLink;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.springframework.extensions.webscripts.AbstractWebScript;
+import org.springframework.extensions.webscripts.Format;
+import org.springframework.extensions.webscripts.WebScriptRequest;
+import org.springframework.extensions.webscripts.WebScriptResponse;
+
+import java.io.IOException;
+
+public class GetDataLinkByNameWebScript extends AbstractWebScript {
+    private static Log logger = LogFactory.getLog(GetDataLinkByNameWebScript.class);
+    
+    private RegisterDataLink registerDataLink;
+    
+    public void setRegisterDataLink(RegisterDataLink registerDataLink) {
+        this.registerDataLink = registerDataLink;
+    }
+    
+    @Override
+    public void execute(WebScriptRequest req, WebScriptResponse res) 
+            throws IOException {
+        
+        String name = req.getParameter("name");
+        
+        if (name == null || name.isEmpty()) {
+            res.setStatus(400);
+            res.getWriter().write("{\"error\": \"Missing name parameter\"}");
+            return;
+        }
+        
+        JSONArray dataLinks = registerDataLink.getDataLinks();
+        JSONObject found = null;
+        
+        for (int i = 0; i < dataLinks.length(); i++) {
+            JSONObject dataLink = dataLinks.getJSONObject(i);
+            if (name.equals(dataLink.getString("name"))) {
+                found = dataLink;
+                break;
+            }
+        }
+        
+        if (found != null) {
+            res.setContentType(Format.JSON.mimetype());
+            res.getWriter().write(found.toString());
+        } else {
+            res.setStatus(404);
+            res.getWriter().write("{\"error\": \"DataLink not found\"}");
+        }
+        
+        res.getWriter().flush();
+    }
+}
+```
+
+### 2. Create Descriptor XML
+
+File: `src/main/resources/alfresco/extension/templates/webscripts/venzia/datalink/v1/datalink-get.get.desc.xml`
+
+```xml
+<webscript>
+    <shortname>Get DataLink by Name</shortname>
+    <description>Retrieves a specific datalink configuration by name</description>
+    <url>/aqua/datalink/v1/get?name={name}</url>
+    <format default="json">argument</format>
+    <authentication>user</authentication>
+    <transaction allow="readonly">required</transaction>
+</webscript>
+```
+
+### 3. Register Bean
+
+File: `src/main/resources/alfresco/module/aqua-datalink/context/webscript-context.xml`
+
+```xml
+<bean id="webscript.venzia.datalink.v1.datalink-get.get"
+      class="es.venzia.aqua.datalink.webscript.GetDataLinkByNameWebScript"
+      parent="webscript">
+    <property name="registerDataLink" ref="registerDataLink" />
+</bean>
+```
+
+### 4. Use from Frontend
+
+```typescript
+export class VenziaDatalinkApiService {
+  
+  getDataLinkByName(name: string): Observable<any> {
+    return from(
+      this.executeWebScript(
+        'GET', 
+        'aqua/datalink/v1/get', 
+        { name: name },
+        null, 
+        'service', 
+        null
+      )
+    ).pipe(
+      catchError((err) => this.handleError(err))
+    );
+  }
+}
+```
+
+## Adding Custom Aspects and Properties
+
+Extend the content model to support new data types.
+
+### 1. Define Aspect
+
+File: `src/main/resources/alfresco/module/aqua-datalink/model/datalink-model.xml`
+
+```xml
+<aspect name="dlnk:project">
+  <title>Project</title>
+  <properties>
+    <property name="dlnk:project">
+      <type>d:text</type>
+      <index enabled="true">
+        <atomic>true</atomic>
+        <stored>false</stored>
+        <tokenised>false</tokenised>
+      </index>
+    </property>
+    <!-- Optional: Add metadata properties -->
+    <property name="dlnk:projectLinkedDate">
+      <type>d:datetime</type>
+      <index enabled="true" />
+    </property>
+    <property name="dlnk:projectLinkedBy">
+      <type>d:text</type>
+      <index enabled="true" />
+    </property>
+  </properties>
+</aspect>
+```
+
+### 2. Create Datalink Configuration
+
+File: `datalink-project.json`
+
+```json
+{
+  "name": "projects",
+  "title": "Company Projects",
+  "description": "Link documents to project records",
+  "aspectName": "dlnk:project",
+  "aspectPropertyName": "dlnk:project",
+  "order": 30,
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/private/projects/search",
+    "authentication": {
+      "type": "basic",
+      "username": "apiuser",
+      "password": "secret"
+    },
+    "searchParam": "query"
+  },
+  "columns": [
+    {
+      "primaryKey": true,
+      "name": "project_id",
+      "label": "Project ID",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "project_name",
+      "label": "Project Name",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "status",
+      "label": "Status",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "start_date",
+      "label": "Start Date",
+      "type": "date",
+      "format": "yyyy-MM-dd"
+    }
+  ]
+}
+```
+
+<Note>
+The `order` property determines tab order in the UI. Lower numbers appear first.
+</Note>
+
+## Adding Custom Services
+
+Create reusable Angular services for common operations.
+
+### Example: DataLink Validation Service
+
+```typescript
+import { Injectable } from '@angular/core';
+import { Observable, of } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { VenziaDatalinkApiService } from './venzia-datalink-api.service';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class VenziaDatalinkValidationService {
+  
+  constructor(private datalinkApi: VenziaDatalinkApiService) {}
+  
+  /**
+   * Validates that a node has a specific datalink aspect
+   */
+  hasDataLinkAspect(
+    nodeProperties: any, 
+    aspectName: string
+  ): boolean {
+    return nodeProperties && 
+           nodeProperties.hasOwnProperty(aspectName);
+  }
+  
+  /**
+   * Checks if a datalink has any linked records
+   */
+  hasLinkedRecords(
+    nodeProperties: any, 
+    aspectPropertyName: string
+  ): boolean {
+    if (!this.hasDataLinkAspect(nodeProperties, aspectPropertyName)) {
+      return false;
+    }
+    
+    try {
+      const data = JSON.parse(nodeProperties[aspectPropertyName]);
+      return Array.isArray(data) && data.length > 0;
+    } catch {
+      return false;
+    }
+  }
+  
+  /**
+   * Gets the count of linked records
+   */
+  getLinkedRecordCount(
+    nodeProperties: any, 
+    aspectPropertyName: string
+  ): number {
+    if (!this.hasLinkedRecords(nodeProperties, aspectPropertyName)) {
+      return 0;
+    }
+    
+    try {
+      const data = JSON.parse(nodeProperties[aspectPropertyName]);
+      return data.length;
+    } catch {
+      return 0;
+    }
+  }
+  
+  /**
+   * Validates datalink configuration structure
+   */
+  validateDataLinkConfig(config: any): Observable<boolean> {
+    const required = [
+      'name', 'aspectName', 'aspectPropertyName', 
+      'connectorRest', 'order', 'columns'
+    ];
+    
+    for (const field of required) {
+      if (!config.hasOwnProperty(field)) {
+        return of(false);
+      }
+    }
+    
+    // Validate connector
+    if (!config.connectorRest.url || 
+        !config.connectorRest.authentication) {
+      return of(false);
+    }
+    
+    // Validate columns
+    if (!Array.isArray(config.columns) || config.columns.length === 0) {
+      return of(false);
+    }
+    
+    const hasPrimaryKey = config.columns.some(
+      (col: any) => col.primaryKey === true
+    );
+    
+    return of(hasPrimaryKey);
+  }
+}
+```
+
+### Using the Service
+
+```typescript
+export class CustomComponent {
+  constructor(
+    private validationService: VenziaDatalinkValidationService
+  ) {}
+  
+  checkNode(node: Node) {
+    if (this.validationService.hasLinkedRecords(
+      node.properties, 
+      'dlnk:employee'
+    )) {
+      const count = this.validationService.getLinkedRecordCount(
+        node.properties, 
+        'dlnk:employee'
+      );
+      console.log(`Node has ${count} linked employees`);
+    }
+  }
+}
+```
+
+## Adding Custom Components
+
+Create reusable UI components for datalink features.
+
+### Example: DataLink Badge Component
+
+```typescript
+import { Component, Input, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { MatBadgeModule } from '@angular/material/badge';
+import { MatIconModule } from '@angular/material/icon';
+import { VenziaDatalinkValidationService } from '../../services/venzia-datalink-validation.service';
+
+@Component({
+  selector: 'aqua-datalink-badge',
+  standalone: true,
+  imports: [CommonModule, MatBadgeModule, MatIconModule],
+  template: `
+    <div class="datalink-badge" *ngIf="hasLinks">
+      <mat-icon [matBadge]="linkCount" matBadgeColor="accent">
+        link
+      </mat-icon>
+    </div>
+  `,
+  styles: [`
+    .datalink-badge {
+      display: inline-flex;
+      align-items: center;
+    }
+  `]
+})
+export class DatalinkBadgeComponent implements OnInit {
+  @Input() nodeProperties: any;
+  @Input() aspectPropertyName: string;
+  
+  hasLinks = false;
+  linkCount = 0;
+  
+  constructor(
+    private validationService: VenziaDatalinkValidationService
+  ) {}
+  
+  ngOnInit() {
+    this.hasLinks = this.validationService.hasLinkedRecords(
+      this.nodeProperties, 
+      this.aspectPropertyName
+    );
+    
+    if (this.hasLinks) {
+      this.linkCount = this.validationService.getLinkedRecordCount(
+        this.nodeProperties, 
+        this.aspectPropertyName
+      );
+    }
+  }
+}
+```
+
+### Using the Component
+
+```typescript
+<aqua-datalink-badge
+  [nodeProperties]="node.entry.properties"
+  [aspectPropertyName]="'dlnk:employee'">
+</aqua-datalink-badge>
+```
+
+## Adding Extension Evaluators
+
+Control when features are visible based on node context.
+
+### 1. Create Evaluator Rule
+
+File: `src/lib/rules/datalink.rules.ts`
+
+```typescript
+import { RuleContext } from '@alfresco/adf-extensions';
+
+/**
+ * Checks if node can have datalinks applied
+ */
+export function canDatalink(context: RuleContext): boolean {
+  if (!context.selection || context.selection.isEmpty) {
+    return false;
+  }
+  
+  const node = context.selection.first;
+  
+  // Only files can have datalinks
+  if (!node.entry.isFile) {
+    return false;
+  }
+  
+  // Node must have properties
+  if (!node.entry.properties) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Checks if node has any datalinks applied
+ */
+export function hasDatalinks(context: RuleContext): boolean {
+  if (!canDatalink(context)) {
+    return false;
+  }
+  
+  const node = context.selection.first;
+  const properties = node.entry.properties;
+  
+  // Check for any dlnk: properties
+  return Object.keys(properties).some(key => key.startsWith('dlnk:'));
+}
+
+/**
+ * Checks if node has specific datalink aspect
+ */
+export function hasEmployeeDatalink(context: RuleContext): boolean {
+  if (!canDatalink(context)) {
+    return false;
+  }
+  
+  const node = context.selection.first;
+  return node.entry.properties.hasOwnProperty('dlnk:employee');
+}
+```
+
+### 2. Register Evaluators
+
+```typescript
+@NgModule({
+  // ...
+})
+export class VenziaDatalinkModule {
+  constructor(
+    translation: TranslationService, 
+    extensions: ExtensionService
+  ) {
+    // Register evaluators
+    extensions.setEvaluators({
+      'datalink.canDatalink': rules.canDatalink,
+      'datalink.hasDatalinks': rules.hasDatalinks,
+      'datalink.hasEmployeeDatalink': rules.hasEmployeeDatalink
+    });
+  }
+}
+```
+
+### 3. Use in Extension Configuration
+
+File: `venzia-datalink.plugin.json`
+
+```json
+{
+  "$schema": "../../extension.schema.json",
+  "$version": "1.0.0",
+  "$name": "venzia-datalink",
+  
+  "actions": [
+    {
+      "id": "datalink.edit",
+      "type": "DATALINK_OPEN",
+      "payload": "$eval(context.selection.first)"
+    }
+  ],
+  
+  "features": {
+    "contextMenu": [
+      {
+        "id": "app.context.datalink",
+        "title": "Edit Datalink",
+        "icon": "link",
+        "actions": {
+          "click": "datalink.edit"
+        },
+        "rules": {
+          "visible": "datalink.canDatalink"
+        }
+      },
+      {
+        "id": "app.context.datalink.view",
+        "title": "View Datalinks",
+        "icon": "visibility",
+        "actions": {
+          "click": "datalink.edit"
+        },
+        "rules": {
+          "visible": "datalink.hasDatalinks"
+        }
+      }
+    ]
+  }
+}
+```
+
+## Adding NgRx Actions and Effects
+
+Extend state management with custom actions.
+
+### 1. Define Actions
+
+```typescript
+import { Action } from '@ngrx/store';
+import { NodeEntry } from '@alfresco/js-api';
+
+export enum DatalinkActionTypes {
+  ValidateDatalinks = 'VALIDATE_DATALINKS',
+  ValidateDatalinksSuccess = 'VALIDATE_DATALINKS_SUCCESS',
+  ValidateDatalinksError = 'VALIDATE_DATALINKS_ERROR',
+  ExportDatalinks = 'EXPORT_DATALINKS',
+  ExportDatalinksSuccess = 'EXPORT_DATALINKS_SUCCESS'
+}
+
+export class ValidateDatalinksAction implements Action {
+  readonly type = DatalinkActionTypes.ValidateDatalinks;
+  constructor(public payload: NodeEntry) {}
+}
+
+export class ValidateDatalinksSuccessAction implements Action {
+  readonly type = DatalinkActionTypes.ValidateDatalinksSuccess;
+  constructor(public payload: any) {}
+}
+
+export class ExportDatalinksAction implements Action {
+  readonly type = DatalinkActionTypes.ExportDatalinks;
+  constructor(public payload: { nodeId: string; format: string }) {}
+}
+```
+
+### 2. Create Effects
+
+```typescript
+import { Injectable } from '@angular/core';
+import { Actions, createEffect, ofType } from '@ngrx/effects';
+import { map, catchError, switchMap } from 'rxjs/operators';
+import { of } from 'rxjs';
+
+@Injectable()
+export class DatalinkValidationEffects {
+  
+  constructor(
+    private actions$: Actions,
+    private validationService: VenziaDatalinkValidationService,
+    private notificationService: NotificationService
+  ) {}
+  
+  validateDatalinks$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType<ValidateDatalinksAction>(
+        DatalinkActionTypes.ValidateDatalinks
+      ),
+      switchMap((action) => {
+        const node = action.payload;
+        const properties = node.entry.properties;
+        
+        // Validate all datalink aspects
+        const results = Object.keys(properties)
+          .filter(key => key.startsWith('dlnk:'))
+          .map(key => ({
+            aspect: key,
+            valid: this.validationService.hasLinkedRecords(
+              properties, key
+            )
+          }));
+        
+        return of(new ValidateDatalinksSuccessAction(results));
+      }),
+      catchError((error) => {
+        this.notificationService.showError(
+          'Failed to validate datalinks'
+        );
+        return of({ type: DatalinkActionTypes.ValidateDatalinksError });
+      })
+    )
+  );
+}
+```
+
+### 3. Dispatch Actions
+
+```typescript
+export class CustomComponent {
+  constructor(private store: Store<AppStore>) {}
+  
+  validateNode(node: NodeEntry) {
+    this.store.dispatch(new ValidateDatalinksAction(node));
+  }
+}
+```
+
+## Custom Column Types
+
+Extend the display logic for custom data types.
+
+### Backend: Schema Extension
+
+```json
+"columns": [
+  {
+    "name": "status",
+    "label": "Status",
+    "type": "status",
+    "format": "badge"
+  },
+  {
+    "name": "priority",
+    "label": "Priority",
+    "type": "number",
+    "format": "star-rating"
+  }
+]
+```
+
+### Frontend: Custom Cell Renderer
+
+```typescript
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'aqua-status-cell',
+  template: `
+    <span class="status-badge" [ngClass]="getStatusClass()">
+      {{ value }}
+    </span>
+  `,
+  styles: [`
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .status-active { background: #4caf50; color: white; }
+    .status-pending { background: #ff9800; color: white; }
+    .status-closed { background: #9e9e9e; color: white; }
+  `]
+})
+export class StatusCellComponent {
+  value: string;
+  
+  getStatusClass(): string {
+    return `status-${this.value.toLowerCase()}`;
+  }
+}
+```
+
+## Best Practices
+
+<Tip>
+- Follow Angular and Alfresco coding standards
+- Use dependency injection for loose coupling
+- Implement proper error handling
+- Add TypeScript types for type safety
+- Write unit tests for services and components
+- Document custom APIs and components
+- Use semantic versioning for extensions
+- Keep backend and frontend in sync
+</Tip>
+
+## Testing Extensions
+
+### Backend Unit Test
+
+```java
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
+import static org.mockito.Mockito.*;
+import static org.junit.Assert.*;
+
+@RunWith(MockitoJUnitRunner.class)
+public class GetDataLinkByNameWebScriptTest {
+    
+    @Mock
+    private RegisterDataLink registerDataLink;
+    
+    @InjectMocks
+    private GetDataLinkByNameWebScript webScript;
+    
+    @Test
+    public void testGetDataLinkByName() throws Exception {
+        // Test implementation
+    }
+}
+```
+
+### Frontend Unit Test
+
+```typescript
+import { TestBed } from '@angular/core/testing';
+import { VenziaDatalinkValidationService } from './venzia-datalink-validation.service';
+
+describe('VenziaDatalinkValidationService', () => {
+  let service: VenziaDatalinkValidationService;
+  
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    service = TestBed.inject(VenziaDatalinkValidationService);
+  });
+  
+  it('should detect linked records', () => {
+    const properties = {
+      'dlnk:employee': '[{"emp_no":"001","name":"John"}]'
+    };
+    
+    const result = service.hasLinkedRecords(properties, 'dlnk:employee');
+    expect(result).toBe(true);
+  });
+  
+  it('should count linked records', () => {
+    const properties = {
+      'dlnk:employee': '[{"emp_no":"001"},{"emp_no":"002"}]'
+    };
+    
+    const count = service.getLinkedRecordCount(properties, 'dlnk:employee');
+    expect(count).toBe(2);
+  });
+});
+```
+
+## Deployment
+
+<Steps>
+  <Step title="Build Backend">
+    ```bash
+    cd venzia-datalink
+    mvn clean install
+    ```
+  </Step>
+  <Step title="Build Frontend">
+    ```bash
+    cd app
+    npm run build venzia-datalink
+    ```
+  </Step>
+  <Step title="Deploy AMP">
+    Copy generated AMP to Alfresco and restart
+  </Step>
+  <Step title="Deploy Frontend">
+    Build and deploy Alfresco Content App with extension
+  </Step>
+</Steps>
+
+<Warning>
+Always test extensions in a development environment before deploying to production.
+</Warning>

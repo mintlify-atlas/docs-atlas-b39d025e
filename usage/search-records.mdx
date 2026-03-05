@@ -1,0 +1,201 @@
+---
+title: Search Records
+description: Learn how to search and select database records to link with documents
+---
+
+The search interface allows you to find database records and link them to documents in Alfresco Content Services. This guide explains how to use the search functionality effectively.
+
+## Opening the Search Dialog
+
+The search dialog opens when you click the **Add** button in the DataLink management dialog:
+
+<Steps>
+  <Step title="Open DataLink Dialog">
+    Navigate to your document and open the Edit DataLink dialog from the toolbar, viewer, or context menu.
+  </Step>
+
+  <Step title="Select DataLink Type">
+    Choose the appropriate tab for the type of database records you want to link.
+  </Step>
+
+  <Step title="Click Add Button">
+    Click the **Add** button in the dialog footer to open the search interface.
+  </Step>
+</Steps>
+
+## Understanding the Search Interface
+
+The search dialog displays a title that varies based on the configured datalink type. The interface includes:
+
+### Search Input Field
+
+- **Placeholder text**: "Search records"
+- **Search icon**: Appears when the field is empty
+- **Clear icon**: Appears when you've entered text, allowing you to quickly clear your search
+- **Debounced search**: The search executes automatically after you stop typing (200ms delay)
+
+<Info>
+  The search is debounced to reduce unnecessary API calls. Wait a moment after typing before the results appear.
+</Info>
+
+### Initial State
+
+When you first open the search dialog, you'll see:
+
+- An empty search field
+- The message: "Type something to start searching"
+- No results are displayed until you enter a search term
+
+### Search Results Table
+
+After entering a search term, matching records appear in a data table:
+
+- **Columns**: Display fields from the database (configured by your administrator)
+- **Multi-select**: Check boxes to select one or more records
+- **Loading indicator**: A spinner appears while search results are being fetched
+- **Empty results**: If no matches are found, you'll see "I sorry we didn't found any result, try you change your query"
+
+## Performing a Search
+
+<Steps>
+  <Step title="Enter Search Term">
+    Type your search query in the search field. The search typically looks for matches across multiple fields in the database.
+  </Step>
+
+  <Step title="Review Results">
+    Wait for the loading spinner to disappear and review the matching records in the table.
+  </Step>
+
+  <Step title="Select Records">
+    Click the checkbox next to each record you want to link to your document. You can select multiple records.
+  </Step>
+
+  <Step title="Confirm Selection">
+    Click the **Add** button in the dialog footer to link the selected records to your document.
+  </Step>
+</Steps>
+
+<Tip>
+  You can link multiple database records to a single document in one operation. Select all relevant records before clicking Add.
+</Tip>
+
+## Search Features
+
+### Real-time Search
+
+The search interface uses a debounced input mechanism:
+
+1. Start typing your search term
+2. The system waits 200 milliseconds after you stop typing
+3. The search executes automatically
+4. Results appear in the table below
+
+<Note>
+  You don't need to press Enter or click a search button. The search happens automatically as you type.
+</Note>
+
+### Clearing Your Search
+
+To start a new search:
+
+1. Click the **X** (clear) icon in the search field
+2. The search field empties
+3. Previous results are cleared
+4. Any selected records are deselected
+5. The initial "Type something to start searching" message reappears
+
+### Search Parameters
+
+The search behavior is configured by your administrator through the datalink connector settings:
+
+- **Search field**: Which database field is searched (configured per datalink type)
+- **Maximum results**: Default limit is 20 records per search
+- **Authentication**: Secure connection to the database backend
+
+## Working with Search Results
+
+### Selecting Records
+
+- **Single selection**: Click the checkbox for one record
+- **Multiple selection**: Click checkboxes for multiple records
+- **Deselecting**: Click a checked box to deselect that record
+- **Add button state**: The Add button is disabled until you select at least one record
+
+### Understanding Record Data
+
+The columns displayed in the search results show:
+
+- Database field values configured by your administrator
+- Data types may include text, numbers, dates, or other formats
+- Column labels indicate what each field represents
+- Some fields may be hidden based on configuration
+
+<Info>
+  The visible columns and their labels are configured by your administrator based on which database fields are most relevant for identifying records.
+</Info>
+
+## Search Tips
+
+### Effective Search Strategies
+
+1. **Be specific**: Use unique identifiers when possible (e.g., ID numbers, codes)
+2. **Try variations**: If you don't find results, try alternative spellings or partial terms
+3. **Check spelling**: The search looks for exact or partial matches
+4. **Use wildcards**: Depending on configuration, partial terms may match multiple records
+
+### Troubleshooting Search Issues
+
+**No results found:**
+- Verify your search term spelling
+- Try a shorter or more general search term
+- Check that records exist in the database
+- Contact your administrator if you expect to see results
+
+**Search is slow:**
+- The database may contain a large number of records
+- Network connectivity may affect response time
+- Contact your administrator if searches consistently time out
+
+**Cannot select records:**
+- Ensure records are fully loaded (loading spinner has disappeared)
+- Try clearing your search and searching again
+- Refresh the dialog if the interface appears unresponsive
+
+## Completing the Link Process
+
+<Steps>
+  <Step title="Verify Selection">
+    Double-check that you've selected the correct records in the table.
+  </Step>
+
+  <Step title="Click Add">
+    Click the **Add** button in the dialog footer to confirm and create the links.
+  </Step>
+
+  <Step title="Return to DataLink Dialog">
+    The search dialog closes and you return to the main DataLink management dialog, where your newly linked records now appear.
+  </Step>
+</Steps>
+
+<Tip>
+  After adding records, the DataLink dialog refreshes to show your newly linked data. You can immediately add more records or close the dialog.
+</Tip>
+
+## Dialog Actions
+
+### Add Button
+
+- **Enabled**: When one or more records are selected
+- **Disabled**: When no records are selected
+- **Action**: Links the selected records to the document and closes the search dialog
+
+### Close Button
+
+- **Always enabled**: You can cancel at any time
+- **Action**: Closes the search dialog without making changes
+- **Effect**: Returns you to the main DataLink management dialog
+
+## Next Steps
+
+- [Edit DataLink](/usage/edit-datalink) - Learn how to manage the DataLink dialog
+- [Link Document Properties](/usage/link-properties) - Understand how properties are stored and linked

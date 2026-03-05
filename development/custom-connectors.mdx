@@ -1,0 +1,646 @@
+---
+title: 'Creating Custom REST Connectors'
+description: 'Build custom connectors to integrate external data sources with Venzia Datalinks'
+icon: 'plug'
+---
+
+## Overview
+
+Venzia Datalinks uses a flexible REST connector system that allows you to integrate any external data source that provides a REST API. This guide shows you how to create custom connectors.
+
+## Connector Architecture
+
+The connector system has two components:
+
+1. **Configuration**: JSON file defining the REST endpoint and authentication
+2. **External API**: Your REST service that returns data matching the configuration
+
+```mermaid
+graph LR
+    A[Datalink Config] --> B[Frontend]
+    B --> C[REST Connector]
+    C --> D[External API]
+    D --> C
+    C --> B
+    B --> E[Alfresco Node]
+```
+
+## Configuration Structure
+
+Every datalink configuration includes a `connectorRest` section:
+
+```json
+{
+  "name": "departments",
+  "title": "Company Departments",
+  "aspectName": "dlnk:departm",
+  "aspectPropertyName": "dlnk:departm",
+  "order": 20,
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/private/departments/search",
+    "authentication": {
+      "type": "basic",
+      "username": "user2019",
+      "password": "g3n3r4l"
+    },
+    "searchParam": "query"
+  },
+  "columns": [
+    {
+      "primaryKey": true,
+      "name": "dept_no",
+      "label": "Id",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "primaryKey": false,
+      "name": "dept_name",
+      "label": "Name",
+      "type": "text"
+    }
+  ]
+}
+```
+
+### Connector Properties
+
+<ResponseField name="url" type="string" required>
+  The full URL of your REST API endpoint
+</ResponseField>
+
+<ResponseField name="authentication" type="object" required>
+  Authentication configuration for the API
+  
+  <Expandable title="properties">
+    <ResponseField name="type" type="enum" required>
+      Authentication type: `"none"` or `"basic"`
+    </ResponseField>
+    
+    <ResponseField name="username" type="string">
+      Username for basic authentication (required if type is `"basic"`)
+    </ResponseField>
+    
+    <ResponseField name="password" type="string">
+      Password for basic authentication (required if type is `"basic"`)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="searchParam" type="string" required>
+  The query parameter name used for search terms (e.g., `"query"` results in `?query=searchterm`)
+</ResponseField>
+
+## Frontend Connector Implementation
+
+The `VenziaDatalinkRestService` handles all REST API calls:
+
+```typescript
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class VenziaDatalinkRestService {
+  constructor(private http: HttpClient) {}
+
+  callApi(endpoint: string, params?: any, authdata?: string): Observable<any> {
+    const httpOptions = { 
+      headers: new HttpHeaders({ 
+        'Content-Type': 'application/json', 
+        Authorization: `Basic ${authdata}` 
+      }), 
+      params: {} 
+    };
+
+    if (params) {
+      httpOptions.params = params;
+    }
+
+    return this.http.get(endpoint, httpOptions).pipe(map(this.extractData));
+  }
+
+  private extractData(res: Response) {
+    const body = res;
+    return body || [];
+  }
+}
+```
+
+### How It Works
+
+<Steps>
+  <Step title="User Initiates Search">
+    User types in search dialog → Frontend captures search term
+  </Step>
+  <Step title="Build Request">
+    Service constructs URL with search parameter: `{url}?{searchParam}={searchTerm}`
+  </Step>
+  <Step title="Add Authentication">
+    If authentication type is `"basic"`, encodes credentials in `Authorization` header
+  </Step>
+  <Step title="Execute Request">
+    Angular HttpClient makes GET request to external API
+  </Step>
+  <Step title="Process Response">
+    Service extracts data and returns to component for display
+  </Step>
+</Steps>
+
+## Creating Your REST API
+
+### Requirements
+
+Your REST API must:
+
+1. Accept GET requests with a search query parameter
+2. Return JSON array of objects
+3. Object keys must match column `name` values in configuration
+4. Support CORS if frontend is on different domain
+5. Handle authentication (if configured)
+
+### Example Implementation (Node.js/Express)
+
+```javascript
+const express = require('express');
+const app = express();
+
+// CORS middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  next();
+});
+
+// Basic authentication middleware
+const basicAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const credentials = Buffer.from(
+    authHeader.substring(6), 'base64'
+  ).toString('utf-8');
+  const [username, password] = credentials.split(':');
+  
+  if (username === 'user2019' && password === 'g3n3r4l') {
+    next();
+  } else {
+    res.status(401).json({ error: 'Invalid credentials' });
+  }
+};
+
+// Search endpoint
+app.get('/api/v1/private/departments/search', basicAuth, (req, res) => {
+  const query = req.query.query?.toLowerCase() || '';
+  
+  // Mock database
+  const departments = [
+    { dept_no: 'd001', dept_name: 'Marketing' },
+    { dept_no: 'd002', dept_name: 'Finance' },
+    { dept_no: 'd003', dept_name: 'Human Resources' },
+    { dept_no: 'd004', dept_name: 'Production' },
+    { dept_no: 'd005', dept_name: 'Development' }
+  ];
+  
+  // Filter by search query
+  const results = departments.filter(dept => 
+    dept.dept_name.toLowerCase().includes(query) ||
+    dept.dept_no.toLowerCase().includes(query)
+  );
+  
+  res.json(results);
+});
+
+app.listen(3005, () => {
+  console.log('API listening on port 3005');
+});
+```
+
+### Example Implementation (Python/Flask)
+
+```python
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import base64
+
+app = Flask(__name__)
+CORS(app)
+
+# Mock database
+departments = [
+    {'dept_no': 'd001', 'dept_name': 'Marketing'},
+    {'dept_no': 'd002', 'dept_name': 'Finance'},
+    {'dept_no': 'd003', 'dept_name': 'Human Resources'},
+    {'dept_no': 'd004', 'dept_name': 'Production'},
+    {'dept_no': 'd005', 'dept_name': 'Development'}
+]
+
+def check_auth(auth_header):
+    if not auth_header or not auth_header.startswith('Basic '):
+        return False
+    
+    credentials = base64.b64decode(auth_header[6:]).decode('utf-8')
+    username, password = credentials.split(':')
+    
+    return username == 'user2019' and password == 'g3n3r4l'
+
+@app.route('/api/v1/private/departments/search', methods=['GET'])
+def search_departments():
+    # Check authentication
+    auth_header = request.headers.get('Authorization')
+    if not check_auth(auth_header):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    # Get search query
+    query = request.args.get('query', '').lower()
+    
+    # Filter results
+    results = [
+        dept for dept in departments
+        if query in dept['dept_name'].lower() or query in dept['dept_no'].lower()
+    ]
+    
+    return jsonify(results)
+
+if __name__ == '__main__':
+    app.run(port=3005)
+```
+
+### Example Implementation (Java/Spring Boot)
+
+```java
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/api/v1/private/departments")
+@CrossOrigin(origins = "*")
+public class DepartmentController {
+    
+    private final List<Department> departments = Arrays.asList(
+        new Department("d001", "Marketing"),
+        new Department("d002", "Finance"),
+        new Department("d003", "Human Resources"),
+        new Department("d004", "Production"),
+        new Department("d005", "Development")
+    );
+    
+    @GetMapping("/search")
+    public ResponseEntity<List<Department>> search(
+            @RequestParam(required = false) String query,
+            @RequestHeader("Authorization") String authHeader) {
+        
+        // Validate basic auth
+        if (!isValidAuth(authHeader)) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        String searchTerm = query != null ? query.toLowerCase() : "";
+        
+        List<Department> results = departments.stream()
+            .filter(dept -> 
+                dept.getDeptName().toLowerCase().contains(searchTerm) ||
+                dept.getDeptNo().toLowerCase().contains(searchTerm)
+            )
+            .collect(Collectors.toList());
+        
+        return ResponseEntity.ok(results);
+    }
+    
+    private boolean isValidAuth(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Basic ")) {
+            return false;
+        }
+        
+        String credentials = new String(
+            Base64.getDecoder().decode(authHeader.substring(6))
+        );
+        return "user2019:g3n3r4l".equals(credentials);
+    }
+}
+
+class Department {
+    private String dept_no;
+    private String dept_name;
+    
+    // Constructor, getters, setters
+}
+```
+
+## Response Format
+
+<Warning>
+Your API must return a JSON array where each object's keys match the column `name` values in your datalink configuration.
+</Warning>
+
+### Correct Response
+
+```json
+[
+  {
+    "dept_no": "d001",
+    "dept_name": "Marketing"
+  },
+  {
+    "dept_no": "d002",
+    "dept_name": "Finance"
+  }
+]
+```
+
+The keys `dept_no` and `dept_name` match the column definitions:
+
+```json
+"columns": [
+  { "name": "dept_no", ... },
+  { "name": "dept_name", ... }
+]
+```
+
+### Incorrect Responses
+
+```json
+// ❌ Wrong: Object instead of array
+{
+  "results": [
+    { "dept_no": "d001", "dept_name": "Marketing" }
+  ]
+}
+
+// ❌ Wrong: Different key names
+[
+  {
+    "id": "d001",
+    "name": "Marketing"
+  }
+]
+
+// ❌ Wrong: Nested structure
+[
+  {
+    "department": {
+      "dept_no": "d001",
+      "dept_name": "Marketing"
+    }
+  }
+]
+```
+
+## Authentication Options
+
+### No Authentication
+
+```json
+"connectorRest": {
+  "url": "https://api.example.com/data",
+  "authentication": {
+    "type": "none"
+  },
+  "searchParam": "q"
+}
+```
+
+### Basic Authentication
+
+```json
+"connectorRest": {
+  "url": "https://api.example.com/data",
+  "authentication": {
+    "type": "basic",
+    "username": "apiuser",
+    "password": "apipassword"
+  },
+  "searchParam": "q"
+}
+```
+
+<Note>
+Credentials are encoded in the `Authorization` header as `Basic base64(username:password)`
+</Note>
+
+## Testing Your Connector
+
+### Using cURL
+
+```bash
+# Without authentication
+curl "http://localhost:3005/api/v1/private/departments/search?query=marketing"
+
+# With basic authentication
+curl -u user2019:g3n3r4l \
+  "http://localhost:3005/api/v1/private/departments/search?query=marketing"
+
+# With authorization header
+curl -H "Authorization: Basic dXNlcjIwMTk6ZzNuM3I0bA==" \
+  "http://localhost:3005/api/v1/private/departments/search?query=marketing"
+```
+
+### Using Postman
+
+<Steps>
+  <Step title="Create Request">
+    Set method to GET and enter your API URL
+  </Step>
+  <Step title="Add Query Parameter">
+    Add parameter with key matching `searchParam` (e.g., `query`) and test value
+  </Step>
+  <Step title="Configure Auth">
+    In Authorization tab, select "Basic Auth" and enter credentials
+  </Step>
+  <Step title="Send Request">
+    Verify response is a JSON array with correct key names
+  </Step>
+</Steps>
+
+## Complete Example: Employee Connector
+
+Let's create a complete employee datalink:
+
+### 1. Create Content Model Aspect
+
+```xml
+<aspect name="dlnk:employee">
+  <title>Employee</title>
+  <properties>
+    <property name="dlnk:employee">
+      <type>d:text</type>
+      <index enabled="true">
+        <atomic>true</atomic>
+        <stored>false</stored>
+        <tokenised>false</tokenised>
+      </index>
+    </property>
+  </properties>
+</aspect>
+```
+
+### 2. Create Datalink Configuration
+
+File: `datalink-employee.json`
+
+```json
+{
+  "name": "employees",
+  "title": "Company Employees",
+  "description": "Link documents to employee records",
+  "aspectName": "dlnk:employee",
+  "aspectPropertyName": "dlnk:employee",
+  "order": 10,
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/private/employees/search",
+    "authentication": {
+      "type": "basic",
+      "username": "apiuser",
+      "password": "secret123"
+    },
+    "searchParam": "query"
+  },
+  "columns": [
+    {
+      "primaryKey": true,
+      "name": "emp_no",
+      "label": "Employee ID",
+      "type": "text",
+      "hidden": false
+    },
+    {
+      "primaryKey": false,
+      "name": "first_name",
+      "label": "First Name",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "last_name",
+      "label": "Last Name",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "email",
+      "label": "Email",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "hire_date",
+      "label": "Hire Date",
+      "type": "date",
+      "format": "yyyy-MM-dd"
+    }
+  ]
+}
+```
+
+### 3. Implement REST API
+
+```javascript
+app.get('/api/v1/private/employees/search', basicAuth, (req, res) => {
+  const query = req.query.query?.toLowerCase() || '';
+  
+  const employees = [
+    {
+      emp_no: '10001',
+      first_name: 'John',
+      last_name: 'Doe',
+      email: 'john.doe@company.com',
+      hire_date: '2020-01-15'
+    },
+    {
+      emp_no: '10002',
+      first_name: 'Jane',
+      last_name: 'Smith',
+      email: 'jane.smith@company.com',
+      hire_date: '2019-06-20'
+    },
+    {
+      emp_no: '10003',
+      first_name: 'Bob',
+      last_name: 'Johnson',
+      email: 'bob.johnson@company.com',
+      hire_date: '2021-03-10'
+    }
+  ];
+  
+  const results = employees.filter(emp => 
+    emp.emp_no.includes(query) ||
+    emp.first_name.toLowerCase().includes(query) ||
+    emp.last_name.toLowerCase().includes(query) ||
+    emp.email.toLowerCase().includes(query)
+  );
+  
+  res.json(results);
+});
+```
+
+### 4. Deploy and Test
+
+<Steps>
+  <Step title="Deploy Configuration">
+    Place `datalink-employee.json` in `alfresco/extension/datalink/` directory
+  </Step>
+  <Step title="Start API Server">
+    Run your REST API on the configured URL and port
+  </Step>
+  <Step title="Restart Alfresco">
+    Restart Alfresco to register the new datalink
+  </Step>
+  <Step title="Test in ACA">
+    Right-click a document → "Edit Datalink" → Select "Company Employees" tab → Search for employees
+  </Step>
+</Steps>
+
+## Best Practices
+
+<Tip>
+- Use environment-specific URLs (development vs. production)
+- Store credentials securely (not in version control)
+- Implement proper error handling in your API
+- Add logging for debugging connector issues
+- Use pagination for large datasets
+- Cache responses when appropriate
+- Validate search input to prevent injection attacks
+</Tip>
+
+## Troubleshooting
+
+### Common Issues
+
+**CORS Errors**
+
+Ensure your API sends proper CORS headers:
+
+```javascript
+res.header('Access-Control-Allow-Origin', '*');
+res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+```
+
+**Authentication Failures**
+
+Verify credentials are correctly encoded:
+
+```javascript
+const credentials = `${username}:${password}`;
+const encoded = Buffer.from(credentials).toString('base64');
+console.log('Expected header:', `Basic ${encoded}`);
+```
+
+**Empty Results**
+
+Check that API response keys match column names exactly (case-sensitive).
+
+**Connection Refused**
+
+Verify API is accessible from Alfresco Content App frontend (not just from backend).
+
+<Warning>
+The REST API is called directly from the browser, not from the Alfresco backend. Ensure the URL is accessible from the client browser.
+</Warning>

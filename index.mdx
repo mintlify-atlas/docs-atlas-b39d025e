@@ -1,97 +1,86 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Venzia Datalinks"
+description: "Seamlessly link Alfresco document properties with database values through JSON configuration"
 ---
 
-## Setting up
+<div style={{
+  background: 'linear-gradient(135deg, #0473b5 0%, #0a5994 100%)',
+  padding: '3rem 2rem',
+  borderRadius: '0px',
+  color: 'white',
+  marginBottom: '2rem'
+}}>
+  <h1 style={{ fontSize: '3rem', fontWeight: 700, marginBottom: '1rem', color: 'white' }}>
+    Venzia Datalinks
+  </h1>
+  <p style={{ fontSize: '1.25rem', opacity: 0.95, maxWidth: '800px' }}>
+    An Alfresco Content Services add-on that lets you seamlessly link document properties with external database values through simple JSON configuration files—no custom code required.
+  </p>
+</div>
 
-Get your documentation site up and running in minutes.
+## Why Datalinks?
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+Datalinks eliminates the complexity of integrating external data sources with Alfresco. Define your database connections, configure your data mappings, and let users link document properties to live database records—all through an intuitive interface.
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get up and running with Datalinks in minutes
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Configuration" icon="gear" href="/configuration/overview">
+    Learn how to configure datalink definitions
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Usage Guide" icon="book-open" href="/usage/edit-datalink">
+    Master datalink operations in Alfresco Content App
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="API Reference" icon="code" href="/api/services/datalink-api">
+    Explore the complete API documentation
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Key Features
 
-Everything you need to create world-class documentation.
+<CardGroup cols={3}>
+  <Card title="JSON Configuration" icon="file-code">
+    Define datalinks through simple JSON files without writing custom code
+  </Card>
+  <Card title="REST Connector" icon="plug">
+    Connect to any REST API with built-in authentication support
+  </Card>
+  <Card title="Search & Browse" icon="magnifying-glass">
+    Search and browse external database records in real-time
+  </Card>
+  <Card title="Content Models" icon="sitemap">
+    Extend Alfresco with custom aspects for datalink properties
+  </Card>
+  <Card title="Angular UI" icon="window">
+    Rich Angular components integrated into Alfresco Content App
+  </Card>
+  <Card title="Maven Integration" icon="cube">
+    Deploy easily with Alfresco SDK and Maven
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## How It Works
 
-## Need inspiration?
+<Steps>
+  <Step title="Define Your Datalink">
+    Create a JSON configuration file specifying your database endpoint, authentication, and column mappings
+  </Step>
+  <Step title="Deploy to Alfresco">
+    Place the configuration in the datalink folder and start Alfresco—datalinks are registered automatically
+  </Step>
+  <Step title="Link Document Properties">
+    Users can right-click documents in Alfresco Content App and select "Edit Datalink" to link properties to database records
+  </Step>
+</Steps>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+## Get Started
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="download" href="/installation">
+    Install the backend module and frontend extension
+  </Card>
+  <Card title="Example Configuration" icon="file-lines" href="/configuration/datalink-json">
+    See a complete datalink JSON example
+  </Card>
+</CardGroup>

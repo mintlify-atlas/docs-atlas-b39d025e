@@ -1,0 +1,413 @@
+---
+title: Datalink JSON Configuration
+description: Complete schema reference for Venzia Datalinks JSON configuration files
+---
+
+## Overview
+
+Datalink JSON files define the connection between Alfresco content model aspects and external REST API data sources. Each JSON file represents a single datalink configuration.
+
+## File Structure
+
+Datalink JSON files must be valid JSON documents with the following top-level structure:
+
+<CodeGroup>
+
+```json Employee Example
+{
+  "name": "employee",
+  "title": "Company Employee",
+  "description": "Example to datalink demo",
+  "aspectName": "dlnk:employee",
+  "aspectPropertyName": "dlnk:employee",
+  "order": 10,
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/public/employees/search",
+    "authentication": {
+      "type": "none",
+      "username": "user2019",
+      "password": "g3n3r4l"
+    },
+    "searchParam": "query"
+  },
+  "columns": [
+    {
+      "primaryKey": true,
+      "name": "emp_no",
+      "label": "Id",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "primaryKey": false,
+      "name": "first_name",
+      "label": "First Name",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "last_name",
+      "label": "Last Name",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "hire_date",
+      "label": "Hire Date",
+      "type": "date",
+      "format": "dd/MM/yyyy"
+    }
+  ]
+}
+```
+
+```json Department Example
+{
+  "name": "departments",
+  "title": "Company Departments",
+  "description": "Example to datalink demo",
+  "aspectName": "dlnk:departm",
+  "aspectPropertyName": "dlnk:departm",
+  "order": 20,
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/private/departments/search",
+    "authentication": {
+      "type": "basic",
+      "username": "user2019",
+      "password": "g3n3r4l"
+    },
+    "searchParam": "query"
+  },
+  "columns": [
+    {
+      "primaryKey": true,
+      "name": "dept_no",
+      "label": "Id",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "primaryKey": false,
+      "name": "dept_name",
+      "label": "Name",
+      "type": "text"
+    }
+  ]
+}
+```
+
+</CodeGroup>
+
+## Schema Reference
+
+### Root Properties
+
+<ParamField path="name" type="string" required>
+  Unique identifier for the datalink. Used internally and must be unique across all datalink configurations.
+  
+  **Example:** `"employee"`, `"departments"`
+</ParamField>
+
+<ParamField path="title" type="string" required>
+  Human-readable display name shown in the Alfresco Share UI.
+  
+  **Example:** `"Company Employee"`, `"Company Departments"`
+</ParamField>
+
+<ParamField path="description" type="string">
+  Optional description of the datalink's purpose and usage.
+  
+  **Example:** `"Example to datalink demo"`
+</ParamField>
+
+<ParamField path="aspectName" type="string" required>
+  Fully qualified name of the Alfresco content model aspect that this datalink binds to. Must match an aspect defined in your content model XML.
+  
+  **Format:** `prefix:localName`
+  
+  **Example:** `"dlnk:employee"`, `"dlnk:departm"`
+</ParamField>
+
+<ParamField path="aspectPropertyName" type="string" required>
+  The property within the aspect where the linked entity's primary key value will be stored.
+  
+  **Example:** `"dlnk:employee"`, `"dlnk:departm"`
+</ParamField>
+
+<ParamField path="order" type="integer">
+  Display order for multiple datalinks on the same document. Lower numbers appear first.
+  
+  **Default:** `0`
+  
+  **Example:** `10`, `20`
+</ParamField>
+
+<ParamField path="connectorRest" type="object" required>
+  Configuration object for the REST API connector. See [REST Connector Configuration](#rest-connector-configuration) below.
+</ParamField>
+
+<ParamField path="columns" type="array" required>
+  Array of column definitions that map REST API response fields to displayable columns. See [Column Configuration](#column-configuration) below.
+</ParamField>
+
+---
+
+### REST Connector Configuration
+
+The `connectorRest` object defines how to connect to the external REST API:
+
+<ParamField path="connectorRest.url" type="string" required>
+  Full URL of the REST API endpoint for searching entities. This endpoint should accept a search query parameter and return a JSON array of results.
+  
+  **Example:** `"http://localhost:3005/api/v1/public/employees/search"`
+</ParamField>
+
+<ParamField path="connectorRest.searchParam" type="string" default="query">
+  The URL query parameter name used to send the user's search text.
+  
+  **Default:** `"query"`
+  
+  **Example:** If `searchParam` is `"query"`, searches become: `?query=John`
+</ParamField>
+
+<ParamField path="connectorRest.authentication" type="object">
+  Authentication configuration for the REST API. See [REST Connectors](/configuration/rest-connectors) for detailed authentication options.
+</ParamField>
+
+---
+
+### Column Configuration
+
+The `columns` array defines which fields from the REST API response should be displayed and how:
+
+<ParamField path="columns[].name" type="string" required>
+  The field name from the REST API JSON response. Must exactly match the property name in the API response.
+  
+  **Example:** `"emp_no"`, `"first_name"`, `"dept_no"`
+</ParamField>
+
+<ParamField path="columns[].label" type="string" required>
+  Human-readable column header displayed in the Alfresco Share UI.
+  
+  **Example:** `"Id"`, `"First Name"`, `"Hire Date"`
+</ParamField>
+
+<ParamField path="columns[].type" type="string" required>
+  Data type of the column. Affects formatting and display.
+  
+  **Options:**
+  - `"text"` - Plain text (default)
+  - `"date"` - Date/time values (requires `format` property)
+  - `"number"` - Numeric values
+  - `"boolean"` - True/false values
+  
+  **Example:** `"text"`, `"date"`
+</ParamField>
+
+<ParamField path="columns[].primaryKey" type="boolean" required>
+  Indicates whether this column contains the unique identifier for the entity. Exactly one column must have `primaryKey: true`.
+  
+  **Example:** `true` for `"emp_no"`, `false` for other columns
+</ParamField>
+
+<ParamField path="columns[].hidden" type="boolean" default="false">
+  If `true`, the column value is stored but not displayed in the UI. Typically used for primary key fields.
+  
+  **Example:** `true` for ID columns, `false` for display columns
+</ParamField>
+
+<ParamField path="columns[].format" type="string">
+  Date format pattern for `type: "date"` columns. Uses Java SimpleDateFormat syntax.
+  
+  **Example:** `"dd/MM/yyyy"`, `"yyyy-MM-dd'T'HH:mm:ss"`
+  
+  **Common patterns:**
+  - `dd/MM/yyyy` - 25/12/2023
+  - `MM-dd-yyyy` - 12-25-2023
+  - `yyyy-MM-dd` - 2023-12-25
+</ParamField>
+
+---
+
+## Validation Rules
+
+<Warning>
+Datalink configurations are validated on startup. Invalid configurations will prevent the datalink from loading.
+</Warning>
+
+### Required Fields
+
+The following fields are mandatory:
+- `name`
+- `title`
+- `aspectName`
+- `aspectPropertyName`
+- `connectorRest.url`
+- `columns` (must contain at least one column)
+
+### Primary Key Requirements
+
+<Note>
+Exactly one column must have `primaryKey: true`. This column's value is stored in the aspect property and used to maintain the link between the document and external entity.
+</Note>
+
+### Aspect Name Validation
+
+The `aspectName` must:
+- Match an aspect defined in a deployed Alfresco content model
+- Follow the format `prefix:localName`
+- Use a registered namespace prefix
+
+### Column Name Restrictions
+
+Column names must:
+- Match exactly with REST API response field names (case-sensitive)
+- Not contain spaces or special characters (except underscore)
+- Be unique within the columns array
+
+---
+
+## API Response Format
+
+The REST API endpoint must return a JSON array of objects. Each object should contain properties matching the column names defined in your datalink configuration.
+
+<Accordion title="Expected API Response Format">
+
+```json
+[
+  {
+    "emp_no": "10001",
+    "first_name": "John",
+    "last_name": "Doe",
+    "hire_date": "15/01/2020"
+  },
+  {
+    "emp_no": "10002",
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "hire_date": "22/03/2019"
+  }
+]
+```
+
+</Accordion>
+
+---
+
+## Complete Configuration Example
+
+Here's a complete datalink configuration with all available options:
+
+```json
+{
+  "name": "employee",
+  "title": "Company Employee",
+  "description": "Link documents to company employees",
+  "aspectName": "dlnk:employee",
+  "aspectPropertyName": "dlnk:employee",
+  "order": 10,
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/public/employees/search",
+    "authentication": {
+      "type": "none",
+      "username": "user2019",
+      "password": "g3n3r4l"
+    },
+    "searchParam": "query"
+  },
+  "columns": [
+    {
+      "primaryKey": true,
+      "name": "emp_no",
+      "label": "Id",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "primaryKey": false,
+      "name": "first_name",
+      "label": "First Name",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "last_name",
+      "label": "Last Name",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "hire_date",
+      "label": "Hire Date",
+      "type": "date",
+      "format": "dd/MM/yyyy"
+    }
+  ]
+}
+```
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Descriptive Names" icon="tag">
+    Choose clear, meaningful names for datalinks that reflect the business entity type
+  </Card>
+  <Card title="Hide Primary Keys" icon="eye-slash">
+    Set `hidden: true` for technical ID columns that users don't need to see
+  </Card>
+  <Card title="Set Display Order" icon="arrow-down-1-9">
+    Use the `order` property to control how multiple datalinks appear on documents
+  </Card>
+  <Card title="Validate JSON" icon="check">
+    Use a JSON validator before deployment to catch syntax errors early
+  </Card>
+</CardGroup>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Datalink not appearing in Share UI">
+    **Possible causes:**
+    - The aspect name doesn't match the content model
+    - JSON syntax errors in the configuration file
+    - The datalink file is not in the correct directory
+    - Missing or invalid primary key column
+    
+    **Solution:** Check Alfresco logs for validation errors and verify file location.
+  </Accordion>
+  
+  <Accordion title="Search returns no results">
+    **Possible causes:**
+    - REST API endpoint is unreachable
+    - Authentication credentials are incorrect
+    - Column names don't match API response fields
+    - API returns data in unexpected format
+    
+    **Solution:** Test the API endpoint directly and verify the response structure.
+  </Accordion>
+  
+  <Accordion title="Date columns display incorrectly">
+    **Possible causes:**
+    - Missing `format` property for date columns
+    - Format pattern doesn't match API date format
+    
+    **Solution:** Verify the date format from API and use correct SimpleDateFormat pattern.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Content Models" icon="diagram-project" href="/configuration/content-models">
+    Learn how to define Alfresco aspects for your datalinks
+  </Card>
+  <Card title="REST Connectors" icon="plug" href="/configuration/rest-connectors">
+    Configure authentication and advanced REST API options
+  </Card>
+</CardGroup>

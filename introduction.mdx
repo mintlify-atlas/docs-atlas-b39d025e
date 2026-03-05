@@ -1,0 +1,223 @@
+---
+title: Introduction
+description: Learn about Venzia Datalinks, an Alfresco Content Services add-on that seamlessly links document properties with database values
+---
+
+## What is Venzia Datalinks?
+
+Venzia Datalinks is a powerful add-on for Alfresco Content Services that allows you to seamlessly link document properties with database values. With Datalinks, you can connect your content metadata to external data sources without writing custom code—everything is configured through simple JSON files.
+
+<Note>
+  Datalinks eliminates the need for custom implementations by providing a flexible, configuration-based approach to linking document properties with external databases.
+</Note>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Configuration-Based" icon="file-code">
+    Define datalinks using simple JSON configuration files—no custom code required
+  </Card>
+  <Card title="REST API Integration" icon="plug">
+    Connect to any REST API endpoint with support for multiple authentication methods
+  </Card>
+  <Card title="Flexible Metadata Models" icon="table">
+    Define custom aspects and properties that link to your database columns
+  </Card>
+  <Card title="ACA Integration" icon="window">
+    Built-in Alfresco Content App extension for easy datalink editing
+  </Card>
+</CardGroup>
+
+## Architecture Overview
+
+Venzia Datalinks consists of three main components:
+
+### 1. Backend Module (venzia-datalink)
+
+The Alfresco repository extension built on SDK 4.10 that provides:
+
+- Custom content models and aspects for datalink properties
+- Datalink configuration loader and validator
+- REST API webscripts for datalink management
+- JSON schema validation for datalink definitions
+
+**Technology Stack:**
+- Alfresco SDK 4.10
+- Alfresco Platform 23.4.1
+- Maven build system
+- Docker-based deployment
+
+### 2. Frontend Extension (app)
+
+An Alfresco Content App extension that provides:
+
+- User interface for editing datalinks on documents
+- Dynamic form generation based on datalink configuration
+- Search and selection interface for linking values
+- Context menu integration (right-click → Edit Datalink)
+
+**Technology Stack:**
+- Alfresco Content App 5.3.0
+- Alfresco ADF 7.0.0-alpha.7
+- Angular 16.x
+- Node.js 18.x
+
+### 3. Database Mock (db mock)
+
+A minimal Node.js Express server that simulates database endpoints for development and testing:
+
+- Public endpoints with no authentication
+- Private endpoints with basic authentication
+- Sample employee and department data
+
+**Technology Stack:**
+- Node.js
+- Express 5.x
+- Runs on port 3005
+
+## How It Works
+
+<Steps>
+  <Step title="Define Datalink Configuration">
+    Create a JSON file in the `docker/datalink` folder specifying:
+    - Datalink name and metadata
+    - Associated Alfresco aspect and property
+    - REST endpoint configuration and authentication
+    - Column definitions that map to database fields
+  </Step>
+  
+  <Step title="Deploy to Alfresco">
+    The backend module loads datalink configurations on startup and registers them with the repository.
+  </Step>
+  
+  <Step title="Link Document Properties">
+    Users can right-click on documents in ACA and select "Edit Datalink" to link properties to database values.
+  </Step>
+  
+  <Step title="Retrieve and Display Data">
+    ACA retrieves datalink definitions and executes REST API calls to fetch available values for selection.
+  </Step>
+</Steps>
+
+## Key Concepts
+
+### Datalink Configuration
+
+Each datalink is defined in a JSON file with the following structure:
+
+```json
+{
+  "name": "departments",
+  "title": "Company Departments",
+  "description": "Example to datalink demo",
+  "aspectName": "dlnk:departm",
+  "aspectPropertyName": "dlnk:departm",
+  "order": 20,
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/private/departments/search",
+    "authentication": {
+      "type": "basic",
+      "username": "user2019",
+      "password": "g3n3r4l"
+    },
+    "searchParam": "query"
+  },
+  "columns": [
+    {
+      "primaryKey": true,
+      "name": "dept_no",
+      "label": "Id",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "primaryKey": false,
+      "name": "dept_name",
+      "label": "Name",
+      "type": "text"
+    }
+  ]
+}
+```
+
+### Content Model Aspects
+
+Datalinks use custom Alfresco aspects to store linked values. The content model defines aspects like:
+
+```xml
+<aspect name="dlnk:employee">
+  <title>Employee</title>
+  <properties>
+    <property name="dlnk:employee">
+      <type>d:text</type>
+      <index enabled="true">
+        <atomic>true</atomic>
+        <stored>false</stored>
+        <tokenised>false</tokenised>
+      </index>
+    </property>
+  </properties>
+</aspect>
+```
+
+### REST API Response Format
+
+Your REST endpoint must return an array of objects with keys matching the column names defined in your datalink configuration:
+
+```json
+[
+  {"dept_no": 1, "dept_name": "Marketing"},
+  {"dept_no": 2, "dept_name": "Human Resources"}
+]
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Employee Document Management">
+    Link employee documents to an HR database to automatically populate employee metadata like name, hire date, and department.
+  </Accordion>
+  
+  <Accordion title="Customer Records">
+    Connect customer documents to your CRM system to link files with customer information without duplicating data.
+  </Accordion>
+  
+  <Accordion title="Product Documentation">
+    Link product documentation to your product database to maintain consistent product codes and specifications.
+  </Accordion>
+  
+  <Accordion title="Project Files">
+    Associate project files with project management system data like project codes, managers, and deadlines.
+  </Accordion>
+</AccordionGroup>
+
+## Authentication Support
+
+Datalinks supports multiple authentication methods for connecting to REST endpoints:
+
+- **None**: Public endpoints with no authentication required
+- **Basic Authentication**: Username and password credentials
+- **Custom Headers**: Support for custom authentication headers
+
+<Warning>
+  Authentication credentials are stored in the datalink configuration files. Ensure proper security measures are in place for production environments.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install and configure Venzia Datalinks in your environment
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get up and running with your first datalink in minutes
+  </Card>
+</CardGroup>
+
+## About Venzia
+
+Venzia Datalinks is developed by Venzia, a company specializing in Alfresco solutions.
+
+- Website: [https://venzia.es](https://venzia.es)
+- Platform: [https://aqua.venzia.es](https://aqua.venzia.es)
+- Contact: info@venzia.es

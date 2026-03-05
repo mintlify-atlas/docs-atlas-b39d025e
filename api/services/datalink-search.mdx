@@ -1,0 +1,443 @@
+---
+title: 'VenziaDatalinkSearchDialogService'
+description: 'Angular service for managing datalink dialogs and node operations'
+---
+
+## Overview
+
+The `VenziaDatalinkSearchDialogService` is an Angular service that manages datalink dialogs and performs operations on Alfresco nodes. It handles adding datalinks to nodes, deleting datalink rows, and updating node properties with datalink data.
+
+## Import
+
+```typescript
+import { VenziaDatalinkSearchDialogService } from 'venzia-datalink';
+```
+
+## Injectable
+
+```typescript
+@Injectable({
+  providedIn: 'root'
+})
+```
+
+## Constructor
+
+```typescript
+constructor(
+  private dialog: MatDialog,
+  private nodesApiService: NodesApiService,
+  private contentApi: ContentApiService
+)
+```
+
+<ParamField path="dialog" type="MatDialog">
+  Angular Material dialog service
+</ParamField>
+
+<ParamField path="nodesApiService" type="NodesApiService">
+  Alfresco nodes API service
+</ParamField>
+
+<ParamField path="contentApi" type="ContentApiService">
+  Alfresco Content API service
+</ParamField>
+
+## Public Methods
+
+### openAddDatalinkDialog
+
+Opens a dialog to add datalink entries to a node.
+
+```typescript
+openAddDatalinkDialog(
+  node: Node,
+  dataLink: any,
+  title?: string
+): Observable<NodeEntry[]>
+```
+
+<ParamField path="node" type="Node" required>
+  The Alfresco node to add datalinks to
+</ParamField>
+
+<ParamField path="dataLink" type="any" required>
+  Datalink configuration object
+</ParamField>
+
+<ParamField path="title" type="string">
+  Optional dialog title
+</ParamField>
+
+<ParamField path="returns" type="Observable<NodeEntry[]>">
+  Observable that emits selected node entries when user confirms
+</ParamField>
+
+#### Example
+
+```typescript
+import { Component } from '@angular/core';
+import { VenziaDatalinkSearchDialogService } from 'venzia-datalink';
+import { Node } from '@alfresco/js-api';
+
+@Component({
+  selector: 'app-add-datalink',
+  template: `
+    <button (click)="openDialog()">Add Datalink</button>
+  `
+})
+export class AddDatalinkComponent {
+  node: Node;
+  dataLink: any;
+
+  constructor(
+    private datalinkDialogService: VenziaDatalinkSearchDialogService
+  ) {}
+
+  openDialog() {
+    this.datalinkDialogService
+      .openAddDatalinkDialog(this.node, this.dataLink, 'Add Customer Data')
+      .subscribe(
+        (selections) => {
+          console.log('User selected:', selections);
+        },
+        (error) => {
+          console.error('Dialog error:', error);
+        }
+      );
+  }
+}
+```
+
+### updateNodeDatalinkByDialog
+
+Opens a dialog to update datalink data for a node, then saves the selections to the node.
+
+```typescript
+updateNodeDatalinkByDialog(
+  nodeId: string,
+  dataLink: any,
+  title?: string
+): Observable<Node>
+```
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to update
+</ParamField>
+
+<ParamField path="dataLink" type="any" required>
+  Datalink configuration object
+</ParamField>
+
+<ParamField path="title" type="string">
+  Optional dialog title
+</ParamField>
+
+<ParamField path="returns" type="Observable<Node>">
+  Observable that emits the updated node
+</ParamField>
+
+#### Example
+
+```typescript
+import { Component, Input } from '@angular/core';
+import { VenziaDatalinkSearchDialogService } from 'venzia-datalink';
+
+@Component({
+  selector: 'app-manage-datalink',
+  template: `
+    <button (click)="updateDatalink()">Manage Datalinks</button>
+    <div *ngIf="updating">Updating...</div>
+  `
+})
+export class ManageDatalinkComponent {
+  @Input() nodeId: string;
+  @Input() dataLink: any;
+  
+  updating = false;
+
+  constructor(
+    private datalinkDialogService: VenziaDatalinkSearchDialogService
+  ) {}
+
+  updateDatalink() {
+    this.updating = true;
+    
+    this.datalinkDialogService
+      .updateNodeDatalinkByDialog(this.nodeId, this.dataLink, 'Manage Customer Data')
+      .subscribe(
+        (updatedNode) => {
+          console.log('Node updated:', updatedNode);
+          this.updating = false;
+        },
+        (error) => {
+          console.error('Update failed:', error);
+          this.updating = false;
+        }
+      );
+  }
+}
+```
+
+### deleteSelectRows
+
+Deletes selected rows from a node's datalink data.
+
+```typescript
+deleteSelectRows(
+  nodeId: string,
+  deleteRows: Array<any>,
+  dataLink: any
+): Observable<Node>
+```
+
+<ParamField path="nodeId" type="string" required>
+  ID of the node to update
+</ParamField>
+
+<ParamField path="deleteRows" type="Array<any>" required>
+  Array of row objects to delete
+</ParamField>
+
+<ParamField path="dataLink" type="any" required>
+  Datalink configuration object
+</ParamField>
+
+<ParamField path="returns" type="Observable<Node>">
+  Observable that emits the updated node
+</ParamField>
+
+#### Example
+
+```typescript
+import { Component, Input } from '@angular/core';
+import { VenziaDatalinkSearchDialogService } from 'venzia-datalink';
+
+@Component({
+  selector: 'app-delete-rows',
+  template: `
+    <button 
+      [disabled]="selectedRows.length === 0"
+      (click)="deleteRows()">
+      Delete Selected ({{ selectedRows.length }})
+    </button>
+  `
+})
+export class DeleteRowsComponent {
+  @Input() nodeId: string;
+  @Input() dataLink: any;
+  @Input() selectedRows: any[] = [];
+
+  constructor(
+    private datalinkDialogService: VenziaDatalinkSearchDialogService
+  ) {}
+
+  deleteRows() {
+    if (this.selectedRows.length === 0) return;
+
+    this.datalinkDialogService
+      .deleteSelectRows(this.nodeId, this.selectedRows, this.dataLink)
+      .subscribe(
+        (updatedNode) => {
+          console.log('Rows deleted, node updated:', updatedNode);
+          this.selectedRows = [];
+        },
+        (error) => {
+          console.error('Delete failed:', error);
+        }
+      );
+  }
+}
+```
+
+### close
+
+Closes all open dialogs.
+
+```typescript
+close(): void
+```
+
+#### Example
+
+```typescript
+import { Component } from '@angular/core';
+import { VenziaDatalinkSearchDialogService } from 'venzia-datalink';
+
+@Component({
+  selector: 'app-dialog-manager',
+  template: `<button (click)="closeDialogs()">Close All Dialogs</button>`
+})
+export class DialogManagerComponent {
+  constructor(
+    private datalinkDialogService: VenziaDatalinkSearchDialogService
+  ) {}
+
+  closeDialogs() {
+    this.datalinkDialogService.close();
+  }
+}
+```
+
+## Private Methods
+
+### getColumnPrimaryKey
+
+Finds and returns the primary key column name from a datalink configuration.
+
+```typescript
+private getColumnPrimaryKey(dataLink: any): string
+```
+
+### parseSelectionsRows
+
+Parses and merges selected rows with existing node datalink data.
+
+```typescript
+private parseSelectionsRows(
+  displayNode: Node,
+  selectedRows: Array<any>,
+  dataLink: any
+): Array<any>
+```
+
+### parseRemoveRows
+
+Parses and removes selected rows from node datalink data.
+
+```typescript
+private parseRemoveRows(
+  displayNode: Node,
+  selectedRows: Array<any>,
+  dataLink: any
+): Array<any>
+```
+
+### openDialog
+
+Opens a Material dialog with specified configuration.
+
+```typescript
+private openDialog(
+  data: any,
+  currentPanelClass: string,
+  chosenWidth: string
+): void
+```
+
+## Implementation Details
+
+<CodeGroup>
+```typescript Key Methods
+import { Injectable } from '@angular/core';
+import { Observable, Subject } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
+import { Node, NodeEntry } from '@alfresco/js-api';
+import { MatDialog } from '@angular/material/dialog';
+import { NodesApiService } from '@alfresco/adf-content-services';
+import { ContentApiService } from '@alfresco/aca-shared';
+import { AddDatalinkDialogComponent } from '../dialogs/datalink-add-dialog/datalink-add-dialog.component';
+import { AddDatalinkDialogData } from '../dialogs/datalink-add-dialog/datalink-add-data.interface';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class VenziaDatalinkSearchDialogService {
+  constructor(
+    private dialog: MatDialog,
+    private nodesApiService: NodesApiService,
+    private contentApi: ContentApiService
+  ) {}
+
+  openAddDatalinkDialog(
+    node: Node,
+    dataLink: any,
+    title?: string
+  ): Observable<NodeEntry[]> {
+    const confirm = new Subject<NodeEntry[]>();
+
+    confirm.subscribe({
+      complete: this.close.bind(this)
+    });
+
+    const data: AddDatalinkDialogData = {
+      nodeId: node.id,
+      dataLink: dataLink,
+      title: title,
+      confirm: confirm
+    };
+
+    this.openDialog(data, 'adf-add-permission-dialog', '630px');
+    return confirm;
+  }
+
+  updateNodeDatalinkByDialog(
+    nodeId: string,
+    dataLink: any,
+    title?: string
+  ): Observable<Node> {
+    return this.contentApi.getNode(nodeId).pipe(
+      switchMap((node) => {
+        return this.openAddDatalinkDialog(node.entry, dataLink, title).pipe(
+          switchMap((selection) => {
+            const data = { properties: {} };
+            data.properties[dataLink.aspectPropertyName] = JSON.stringify(
+              this.parseSelectionsRows(node.entry, selection, dataLink)
+            );
+            return this.nodesApiService.updateNode(nodeId, data);
+          })
+        );
+      })
+    );
+  }
+
+  deleteSelectRows(
+    nodeId: string,
+    deleteRows: Array<any>,
+    dataLink: any
+  ): Observable<Node> {
+    return this.contentApi.getNode(nodeId).pipe(
+      switchMap((node) => {
+        const data = { properties: {} };
+        data.properties[dataLink.aspectPropertyName] = JSON.stringify(
+          this.parseRemoveRows(node.entry, deleteRows, dataLink)
+        );
+        return this.nodesApiService.updateNode(nodeId, data);
+      })
+    );
+  }
+
+  close() {
+    this.dialog.closeAll();
+  }
+}
+```
+</CodeGroup>
+
+## Data Flow
+
+1. **Add Datalinks**: Opens dialog → User selects items → Merges with existing data → Updates node properties
+2. **Delete Rows**: Filters out selected rows → Updates node properties
+3. **Primary Key Matching**: Uses primary key column to prevent duplicates when adding data
+
+## Node Property Storage
+
+Datalink data is stored in Alfresco node properties as JSON strings:
+- Property name is defined in `dataLink.aspectPropertyName`
+- Data is stored as a JSON array of objects
+- Each object represents one row with column names as keys
+
+## Dependencies
+
+- `@angular/core`: Angular framework
+- `@angular/material/dialog`: Material dialogs
+- `@alfresco/js-api`: Alfresco JavaScript API
+- `@alfresco/adf-content-services`: ADF content services
+- `@alfresco/aca-shared`: Alfresco Content App shared library
+- `rxjs`: Reactive programming support
+
+## See Also
+
+- [Add Datalink Dialog Component](/api/components/datalink-dialog#add-datalink-dialog) - Dialog opened by this service
+- [Datalink List Component](/api/components/datalink-list) - Component that uses this service
+- [AddDatalinkDialogData Interface](/api/services/datalink-search#dialog-data-interface) - Data interface for dialogs

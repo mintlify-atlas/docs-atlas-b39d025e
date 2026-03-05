@@ -1,0 +1,602 @@
+---
+title: Frontend Extension
+description: Angular library for Alfresco Content App integration
+icon: browser
+---
+
+The frontend extension is an Angular library that integrates Venzia Datalinks functionality into the Alfresco Content App. Built with Angular 16, Material Design, and NgRx for state management, it provides UI components and services for managing datalinks.
+
+## Architecture Overview
+
+The library follows Angular best practices with a modular architecture, feature store pattern using NgRx, and standalone components.
+
+<CardGroup cols={2}>
+  <Card title="Angular Components" icon="layer-group">
+    Reusable UI components for datalink management
+  </Card>
+  <Card title="NgRx Store" icon="store">
+    State management with actions, reducers, and effects
+  </Card>
+  <Card title="Services" icon="gears">
+    API communication and business logic
+  </Card>
+  <Card title="ADF Integration" icon="puzzle-piece">
+    Deep integration with Alfresco Development Framework
+  </Card>
+</CardGroup>
+
+## Module Structure
+
+### VenziaDatalinkModule
+
+The main Angular module that bundles all functionality:
+
+```typescript venzia-datalink.module.ts
+import { NgModule } from '@angular/core';
+import { ExtensionService, provideExtensionConfig } from '@alfresco/adf-extensions';
+import { TranslationService } from '@alfresco/adf-core';
+import * as rules from '@venzia/venzia-datalink/rules';
+import { VenziaDatalinkStoreModule } from './store';
+
+@NgModule({
+  declarations: [DatalinkDialogComponent, AddDatalinkDialogComponent],
+  imports: [
+    VenziaDatalinkStoreModule,
+    TranslateModule,
+    MatDialogModule,
+    MatIconModule,
+    DatalinkListComponent,
+    DatalinkAddPanelComponent,
+    MatButtonModule
+  ],
+  exports: [],
+  providers: [provideExtensionConfig(['venzia-datalink.plugin.json'])]
+})
+export class VenziaDatalinkModule {
+  constructor(translation: TranslationService, extensions: ExtensionService) {
+    translation.addTranslationFolder('datalink', 'assets/datalink');
+
+    extensions.setEvaluators({
+      'datalink.canDatalink': rules.canDatalink
+    });
+  }
+}
+```
+
+**Key Features:**
+- Registers translation resources
+- Configures extension evaluators for conditional UI display
+- Imports NgRx store module for state management
+- Provides plugin configuration
+
+### Public API
+
+The library exports the following public API:
+
+```typescript public-api.ts
+export * from './lib/services/venzia-datalink.service';
+export * from './lib/components/datalink-manager.component';
+export * from './lib/venzia-datalink.module';
+```
+
+## Core Services
+
+### VenziaDatalinkApiService
+
+Handles communication with the backend web scripts:
+
+```typescript venzia-datalink-api.service.ts
+import { Injectable } from '@angular/core';
+import { AlfrescoApiService } from '@alfresco/adf-content-services';
+import { LogService } from '@alfresco/adf-core';
+import { from, Observable, throwError } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class VenziaDatalinkApiService {
+  constructor(
+    private apiService: AlfrescoApiService, 
+    private logService: LogService
+  ) {}
+
+  loadDataLink(): Observable<any> {
+    return from(
+      this.executeWebScript(
+        'GET', 
+        'aqua/datalink/v1/list', 
+        null, 
+        null, 
+        'service', 
+        null
+      )
+    ).pipe(
+      catchError((err) => this.handleError(err))
+    );
+  }
+
+  private executeWebScript(
+    httpMethod: string,
+    scriptPath: string,
+    scriptArgs?: any,
+    contextRoot?: string,
+    servicePath?: string,
+    postBody?: any
+  ): Promise<any> {
+    contextRoot = contextRoot || 'alfresco';
+    servicePath = servicePath || 'service';
+
+    const allowedMethod: string[] = ['GET', 'POST', 'PUT', 'DELETE'];
+    if (!httpMethod || allowedMethod.indexOf(httpMethod) === -1) {
+      throw new Error('method allowed value GET, POST, PUT and DELETE');
+    }
+
+    const contentTypes = ['application/json'];
+    const accepts = ['application/json', 'text/html'];
+    
+    return this.apiService
+      .getInstance()
+      .contentClient.callApi(
+        scriptPath, 
+        httpMethod, 
+        {}, 
+        scriptArgs, 
+        {}, 
+        {}, 
+        postBody, 
+        contentTypes, 
+        accepts, 
+        null, 
+        contextRoot + '/' + servicePath
+      );
+  }
+}
+```
+
+**Responsibilities:**
+- Calls the backend web script at `/alfresco/service/aqua/datalink/v1/list`
+- Handles HTTP errors and logging
+- Uses Alfresco JS API for authenticated requests
+
+### VenziaDatalinkService
+
+Manages dialog interactions and user actions:
+
+```typescript venzia-datalink.service.ts
+import { Injectable } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
+import { NotificationService } from '@alfresco/adf-core';
+import { NodeEntry } from '@alfresco/js-api';
+import { DatalinkDialogComponent } from '../dialogs/datalink-dialog/datalink-dialog.component';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class VenziaDatalinkService {
+  constructor(
+    private dialogRef: MatDialog, 
+    private notificationService: NotificationService
+  ) {}
+
+  dataLinkDoc(node: NodeEntry): void {
+    if (node?.entry && node?.entry.properties) {
+      this.dialogRef.open(DatalinkDialogComponent, {
+        data: { nodeId: node.entry.id },
+        panelClass: 'aca-permissions-dialog-panel',
+        width: '730px'
+      });
+    } else {
+      this.notificationService.showError(
+        'DATALINK.MESSAGES.ERRORS.NO_PROPERTIES'
+      );
+    }
+  }
+}
+```
+
+**Features:**
+- Opens datalink dialog for selected nodes
+- Validates node properties before opening dialog
+- Displays error notifications for invalid selections
+
+## State Management (NgRx)
+
+### Store Module
+
+The library uses NgRx for predictable state management:
+
+```typescript venzia-datalink-store.module.ts
+import { NgModule } from '@angular/core';
+import { StoreModule } from '@ngrx/store';
+import { EffectsModule } from '@ngrx/effects';
+import { venziaDatalinkReducer } from './reducers/venzia-datalink.reducer';
+import { VenziaDatalinkEffects } from './effects/venzia-datalink.effects';
+
+@NgModule({
+  imports: [
+    StoreModule.forFeature('datalink', venziaDatalinkReducer),
+    EffectsModule.forFeature([VenziaDatalinkEffects])
+  ]
+})
+export class VenziaDatalinkStoreModule {}
+```
+
+### Actions
+
+Defines the action types for datalink operations:
+
+```typescript venzia-datalink.actions.ts
+import { Action } from '@ngrx/store';
+import { NodeEntry } from '@alfresco/js-api';
+
+export enum VenziaDatalinkActionTypes {
+  DatalinkOpen = 'DATALINK_OPEN_ACTION'
+}
+
+export class DataLinkOpenAction implements Action {
+  readonly type = VenziaDatalinkActionTypes.DatalinkOpen;
+  constructor(public payload: NodeEntry) {}
+}
+```
+
+### Effects
+
+Handles side effects like opening dialogs:
+
+```typescript venzia-datalink.effects.ts
+import { inject, Injectable } from '@angular/core';
+import { Actions, createEffect, ofType } from '@ngrx/effects';
+import { Store } from '@ngrx/store';
+import { map, take } from 'rxjs/operators';
+import { getAppSelection } from '@alfresco/aca-shared/store';
+
+@Injectable()
+export class VenziaDatalinkEffects {
+  private actions$ = inject(Actions);
+  private store = inject(Store);
+  private venziaDatalinkService = inject(VenziaDatalinkService);
+  private notificationService = inject(NotificationService);
+
+  dataLinkDoc$ = createEffect(
+    () =>
+      this.actions$.pipe(
+        ofType<DataLinkOpenAction>(VenziaDatalinkActionTypes.DatalinkOpen),
+        map((action) => {
+          if (action.payload) {
+            this.venziaDatalinkService.dataLinkDoc(action.payload);
+          } else {
+            this.store
+              .select(getAppSelection)
+              .pipe(take(1))
+              .subscribe((selection) => {
+                if (!selection.isEmpty) {
+                  this.venziaDatalinkService.dataLinkDoc(selection.first);
+                } else {
+                  this.notificationService.showError(
+                    'DATALINK.MESSAGES.ERRORS.EMPTY_SELECTION'
+                  );
+                }
+              });
+          }
+        })
+      ),
+    { dispatch: false }
+  );
+}
+```
+
+**Effect Logic:**
+1. Listens for `DATALINK_OPEN_ACTION`
+2. Uses payload node if provided, otherwise gets current selection from store
+3. Opens datalink dialog or shows error notification
+
+## UI Components
+
+### DataLinkManagerComponent
+
+The main container component for datalink management:
+
+```typescript datalink-manager.component.ts
+import { Component, Input, ViewChild, Output, EventEmitter } from '@angular/core';
+import { Store } from '@ngrx/store';
+import { AppStore, SnackbarErrorAction } from '@alfresco/aca-shared/store';
+
+@Component({
+  selector: 'aqua-datalink-manager',
+  templateUrl: './datalink-manager.component.html',
+  standalone: true,
+  imports: [CommonModule, DatalinkListComponent]
+})
+export class DataLinkManagerComponent implements OnInit {
+  @Input() nodeId: string;
+  @ViewChild('datalinkList') datalinkList: DatalinkListComponent;
+  @Output() select: EventEmitter<any> = new EventEmitter();
+
+  toggleStatus = false;
+
+  constructor(private store: Store<AppStore>) {}
+
+  onSelect(selectionList: any[]) {
+    this.select.emit(selectionList);
+  }
+
+  onError(errorMessage: string) {
+    this.store.dispatch(new SnackbarErrorAction(errorMessage));
+  }
+
+  onUpdate() {
+    this.datalinkList.reload();
+  }
+
+  openAddDatalinkDialog(event: Event) {
+    this.datalinkList.openAddDatalinkDialog(event);
+  }
+
+  removeSelectionRows(event: Event) {
+    this.datalinkList.deleteSelectRows(event);
+  }
+}
+```
+
+**Component Features:**
+- Manages datalink list child component
+- Emits selection events to parent components
+- Dispatches error actions to NgRx store
+- Delegates actions to child components
+
+<Note>
+`DataLinkManagerComponent` is a standalone component, following Angular's modern component model.
+</Note>
+
+### Component Hierarchy
+
+```
+DataLinkManagerComponent (aqua-datalink-manager)
+├── DatalinkListComponent
+│   ├── Shows list of datalinks for a node
+│   └── Handles selection and deletion
+└── DatalinkAddPanelComponent
+    ├── Search and add new datalinks
+    └── Integrates with datalink search dialog
+```
+
+## Dialogs
+
+### DatalinkDialogComponent
+
+Main dialog for managing datalinks on a document:
+
+```typescript
+@Component({
+  selector: 'aqua-datalink-dialog',
+  templateUrl: './datalink-dialog.component.html'
+})
+export class DatalinkDialogComponent {
+  constructor(
+    @Inject(MAT_DIALOG_DATA) public data: { nodeId: string },
+    private dialogRef: MatDialogRef<DatalinkDialogComponent>
+  ) {}
+}
+```
+
+### AddDatalinkDialogComponent
+
+Dialog for adding new datalinks to a document:
+
+```typescript
+@Component({
+  selector: 'aqua-add-datalink-dialog',
+  templateUrl: './datalink-add-dialog.component.html'
+})
+export class AddDatalinkDialogComponent {
+  // Implementation for adding datalinks
+}
+```
+
+## Additional Services
+
+<Tabs>
+  <Tab title="REST Service">
+    **VenziaDatalinkRestService**
+    
+    Handles REST operations for datalink CRUD operations:
+    - Create datalink associations
+    - Update datalink metadata
+    - Delete datalink relationships
+  </Tab>
+  
+  <Tab title="Search Dialog Service">
+    **VenziaDatalinkSearchDialogService**
+    
+    Manages search dialog interactions:
+    - Opens external database search dialogs
+    - Handles search result selection
+    - Returns selected items to parent component
+  </Tab>
+</Tabs>
+
+## Pipes
+
+### OrderByPipe
+
+Custom pipe for sorting datalink lists:
+
+```typescript order-by.pipe.ts
+import { Pipe, PipeTransform } from '@angular/core';
+
+@Pipe({
+  name: 'orderBy',
+  standalone: true
+})
+export class OrderByPipe implements PipeTransform {
+  transform(array: any[], field: string, order: 'asc' | 'desc' = 'asc'): any[] {
+    // Sorting implementation
+  }
+}
+```
+
+## Extension Configuration
+
+The library integrates with ADF Extensions framework:
+
+```json venzia-datalink.plugin.json
+{
+  "$version": "1.0.0",
+  "$id": "venzia.datalink",
+  "$name": "Venzia Datalink Plugin",
+  "actions": [
+    {
+      "id": "venzia.datalink.open",
+      "type": "DATALINK_OPEN_ACTION",
+      "payload": "$node"
+    }
+  ],
+  "rules": [
+    {
+      "id": "datalink.canDatalink",
+      "type": "core.every",
+      "parameters": [
+        { "type": "rule", "value": "app.selection.file" },
+        { "type": "rule", "value": "app.selection.hasProperties" }
+      ]
+    }
+  ]
+}
+```
+
+## Dependencies
+
+The library has the following peer dependencies:
+
+```json package.json
+{
+  "name": "@venzia/venzia-datalink",
+  "version": "0.0.1",
+  "peerDependencies": {
+    "@angular/common": "16.2.9",
+    "@angular/compiler": "16.2.9",
+    "@angular/core": "16.2.9",
+    "@angular/forms": "16.2.9",
+    "@angular/material": "16.2.9"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  }
+}
+```
+
+<Note>
+The library is built for Angular 16 and requires compatible versions of Angular Material and Alfresco ADF.
+</Note>
+
+## Project Structure
+
+```
+app/projects/venzia-datalink/
+├── src/
+│   ├── public-api.ts                    # Public exports
+│   └── lib/
+│       ├── venzia-datalink.module.ts    # Main module
+│       ├── components/
+│       │   ├── datalink-manager.component.ts
+│       │   ├── datalink-list/
+│       │   ├── datalink-search/
+│       │   └── datalink-add-panel/
+│       ├── dialogs/
+│       │   ├── datalink-dialog/
+│       │   └── datalink-add-dialog/
+│       ├── services/
+│       │   ├── venzia-datalink.service.ts
+│       │   ├── venzia-datalink-api.service.ts
+│       │   ├── venzia-datalink-rest.service.ts
+│       │   └── venzia-datalink-search-dialog.service.ts
+│       ├── store/
+│       │   ├── venzia-datalink-store.module.ts
+│       │   ├── actions/
+│       │   ├── effects/
+│       │   ├── reducers/
+│       │   ├── states/
+│       │   └── initial-state.ts
+│       └── pipes/
+│           └── order-by.pipe.ts
+├── rules/
+│   └── src/
+│       ├── public-api.ts
+│       └── app.rules.ts
+├── package.json
+└── test.ts
+```
+
+## Integration with Content App
+
+To use the library in Alfresco Content App:
+
+<Steps>
+  <Step title="Install the library">
+    Add to your Content App's `package.json`:
+    ```json
+    {
+      "dependencies": {
+        "@venzia/venzia-datalink": "^0.0.1"
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Import the module">
+    Add to your `app.module.ts`:
+    ```typescript
+    import { VenziaDatalinkModule } from '@venzia/venzia-datalink';
+
+    @NgModule({
+      imports: [
+        VenziaDatalinkModule,
+        // ... other modules
+      ]
+    })
+    ```
+  </Step>
+  
+  <Step title="Configure extensions">
+    The plugin automatically registers with ADF Extensions.
+  </Step>
+  
+  <Step title="Use the component">
+    Use the manager component in your templates:
+    ```html
+    <aqua-datalink-manager [nodeId]="selectedNode.id"></aqua-datalink-manager>
+    ```
+  </Step>
+</Steps>
+
+## Development
+
+### Building the Library
+
+```bash
+ng build @venzia/venzia-datalink
+```
+
+### Running Tests
+
+```bash
+ng test @venzia/venzia-datalink
+```
+
+### Watching for Changes
+
+```bash
+ng build @venzia/venzia-datalink --watch
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Backend Module" icon="server" href="/components/backend-module">
+    Learn about the Alfresco repository services
+  </Card>
+  <Card title="Database Mock" icon="database" href="/components/database-mock">
+    Set up the test server for development
+  </Card>
+</CardGroup>

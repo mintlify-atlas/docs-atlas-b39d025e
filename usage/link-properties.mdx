@@ -1,0 +1,314 @@
+---
+title: Link Properties
+description: Understand how document properties are linked to database values
+---
+
+Venzia Datalinks connects Alfresco document metadata with external database records by storing linked data in document properties. This guide explains how this linking mechanism works and how the data is managed.
+
+## How DataLinks Store Information
+
+When you link database records to a document, Venzia Datalinks stores the connection using Alfresco's property system:
+
+### Property-Based Storage
+
+- Each datalink type is associated with a specific **aspect property** on the document
+- Linked records are stored as **JSON arrays** within these properties
+- Multiple records can be linked to a single document through one property
+- Each property contains the complete record data returned from the database
+
+<Info>
+  Aspect properties are metadata fields added to documents through Alfresco's content model. Your administrator configures which properties are used for each datalink type.
+</Info>
+
+## Understanding Aspect Properties
+
+Aspect properties are the foundation of how Venzia Datalinks operates:
+
+### What Are Aspect Properties?
+
+In Alfresco Content Services:
+
+- **Aspects** are reusable sets of properties that can be applied to documents
+- **Properties** are metadata fields that store information about documents
+- **Aspect properties** combine these concepts to extend document metadata
+
+### DataLink Property Configuration
+
+For each configured datalink type:
+
+1. **Aspect Property Name**: A unique identifier for where linked data is stored (e.g., `dl:customerRecords`)
+2. **Property Type**: Must be configured to store text/JSON data
+3. **Multiple Records**: The property stores an array of database records
+4. **JSON Format**: Data is serialized as JSON for structured storage
+
+<Note>
+  Property names and aspect configurations are set up by your administrator during the Venzia Datalinks installation and configuration process.
+</Note>
+
+## The Linking Process
+
+When you add or remove database links, here's what happens behind the scenes:
+
+### Adding Records
+
+<Steps>
+  <Step title="User Selects Records">
+    You search for and select database records in the search dialog.
+  </Step>
+
+  <Step title="Record Data Retrieved">
+    The system retrieves the complete record data from the database via the configured REST API connector.
+  </Step>
+
+  <Step title="JSON Array Created">
+    The selected records are combined with any existing linked records into a JSON array.
+  </Step>
+
+  <Step title="Property Updated">
+    The JSON array is serialized and stored in the document's aspect property using the Alfresco Nodes API.
+  </Step>
+
+  <Step title="Document Saved">
+    Alfresco persists the updated property value, creating a new version if versioning is enabled.
+  </Step>
+</Steps>
+
+### Removing Records
+
+<Steps>
+  <Step title="User Selects Records to Remove">
+    You select one or more linked records in the DataLink management dialog.
+  </Step>
+
+  <Step title="Array Filtered">
+    The system creates a new JSON array excluding the selected records.
+  </Step>
+
+  <Step title="Property Updated">
+    The filtered JSON array is serialized and saved back to the document's aspect property.
+  </Step>
+
+  <Step title="Document Saved">
+    Alfresco persists the change, maintaining the version history.
+  </Step>
+</Steps>
+
+## Data Structure
+
+### JSON Storage Format
+
+Linked records are stored as a JSON array in the document property:
+
+```json
+[
+  {
+    "id": "12345",
+    "name": "Customer Record",
+    "date": "2024-01-15",
+    "status": "Active"
+  },
+  {
+    "id": "67890",
+    "name": "Another Record",
+    "date": "2024-02-20",
+    "status": "Pending"
+  }
+]
+```
+
+### Field Mapping
+
+The fields stored in each record object depend on:
+
+- **Database schema**: What fields exist in the source database table
+- **REST API response**: What fields the connector returns
+- **Column configuration**: Which fields are displayed in the UI tables
+
+<Tip>
+  All fields returned by the database REST API are stored, even if they're not visible in the DataLink dialog tables. This ensures complete data preservation.
+</Tip>
+
+## Property Management
+
+### Reading Properties
+
+When you open the DataLink management dialog:
+
+1. The system retrieves the document node information from Alfresco
+2. For each configured datalink type, it checks if the corresponding aspect property exists
+3. If the property exists and contains data, the JSON is parsed into record objects
+4. The records are displayed in the appropriate tab of the DataLink dialog
+
+### Writing Properties
+
+When you add or remove records:
+
+1. The updated record array is serialized to JSON format
+2. The Alfresco Nodes API `updateNode` method is called
+3. The aspect property value is set to the new JSON string
+4. Alfresco validates and persists the change
+5. If versioning is enabled, a new document version is created
+
+<Info>
+  Each property update creates a new version of the document (if versioning is enabled). This provides an audit trail of all datalink changes.
+</Info>
+
+## Multiple DataLink Types
+
+Documents can have multiple types of datalinks simultaneously:
+
+### Separate Properties
+
+- Each datalink type uses a **different aspect property**
+- Customer records might be stored in `dl:customers`
+- Product records might be stored in `dl:products`
+- Invoice records might be stored in `dl:invoices`
+
+### Independent Management
+
+- Changes to one datalink type don't affect others
+- You can add customer records without impacting product links
+- Each property maintains its own JSON array of records
+
+### Tabbed Interface
+
+The DataLink dialog displays tabs for each datalink type:
+
+- Each tab reads from its configured aspect property
+- Switching tabs shows different sets of linked records
+- The active tab determines which property is updated when you add/remove records
+
+## Property Compatibility
+
+### Content Model Requirements
+
+For Venzia Datalinks to work with a document:
+
+1. **Aspect must be applied**: The document must have the required aspect(s)
+2. **Property must exist**: The aspect must define the properties used for datalink storage
+3. **Property type**: Must support text/string data to store JSON
+
+### Administrator Configuration
+
+Your administrator configures:
+
+- **Aspect definitions**: Which aspects contain datalink properties
+- **Property names**: The identifiers used for each datalink type
+- **Content model**: The Alfresco content model that defines these aspects and properties
+- **Auto-application**: Whether aspects are automatically applied to documents
+
+<Note>
+  If you see the error "Not compatible content," it means the document doesn't have the required aspect properties. Contact your administrator to configure the content model for your document type.
+</Note>
+
+## Data Integrity
+
+### Validation
+
+The system ensures data integrity through:
+
+- **JSON validation**: Data is validated before storage
+- **Array structure**: Records are always stored as valid JSON arrays
+- **Error handling**: Failed updates trigger error messages and don't corrupt existing data
+
+### Versioning
+
+When Alfresco versioning is enabled:
+
+- **Version history**: Each datalink change creates a new document version
+- **Audit trail**: You can track when records were added or removed
+- **Rollback capability**: Previous versions preserve old datalink states
+
+### Data Persistence
+
+- **Database storage**: Properties are stored in Alfresco's database
+- **Backup included**: Datalinks are part of regular Alfresco backups
+- **Migration support**: Properties move with documents during migrations
+
+## Working with Properties Programmatically
+
+For developers and administrators:
+
+### Accessing via API
+
+Linked data can be accessed through:
+
+- **Alfresco REST API**: Read document properties using the Nodes API
+- **CMIS**: Access properties via CMIS protocol
+- **JavaScript API**: Read/write properties in repository-tier scripts
+
+### Example Property Access
+
+Using the Alfresco REST API:
+
+```
+GET /alfresco/api/-default-/public/alfresco/versions/1/nodes/{nodeId}
+```
+
+Response includes properties:
+
+```json
+{
+  "properties": {
+    "dl:customerRecords": "[{\"id\":\"12345\"...}]"
+  }
+}
+```
+
+<Tip>
+  The property value is a JSON string that needs to be parsed into an array of objects for programmatic use.
+</Tip>
+
+## Best Practices
+
+### For Users
+
+1. **Verify before deleting**: Check that you're removing the correct records, as changes create new versions
+2. **Link relevant records**: Only link database records that are truly related to the document
+3. **Use appropriate types**: Select the correct datalink type tab for the kind of records you're linking
+
+### For Administrators
+
+1. **Plan property names**: Use clear, descriptive names for aspect properties
+2. **Configure content models**: Ensure aspects are properly defined and applied
+3. **Test compatibility**: Verify that all document types support the required aspects
+4. **Document configuration**: Maintain documentation of which properties are used for which datalink types
+
+## Troubleshooting
+
+### Property Not Found
+
+**Symptom**: "Not compatible content" error message
+
+**Causes**:
+- Document doesn't have the required aspect applied
+- Property doesn't exist in the content model
+- Configuration mismatch between plugin and content model
+
+**Solution**: Contact your administrator to verify content model configuration
+
+### Invalid Data Format
+
+**Symptom**: Linked records don't display correctly
+
+**Causes**:
+- Property contains invalid JSON
+- Data structure doesn't match expected format
+- Manual property modification outside of Venzia Datalinks
+
+**Solution**: Have an administrator inspect and repair the property value
+
+### Version History Issues
+
+**Symptom**: Can't track datalink changes over time
+
+**Causes**:
+- Versioning not enabled for the document type
+- Version history has been deleted
+
+**Solution**: Enable versioning in Alfresco for better datalink audit trails
+
+## Next Steps
+
+- [Edit DataLink](/usage/edit-datalink) - Learn how to manage the DataLink dialog
+- [Search Records](/usage/search-records) - Learn how to find and select database records

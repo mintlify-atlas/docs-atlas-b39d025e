@@ -1,0 +1,503 @@
+---
+title: 'Datalink Dialog Components'
+description: 'Angular dialog components for managing datalinks on Alfresco nodes'
+---
+
+## Overview
+
+The Venzia Datalinks library provides two dialog components for managing datalinks:
+- **DatalinkDialogComponent**: Main dialog for viewing and managing all datalinks on a node
+- **AddDatalinkDialogComponent**: Dialog for searching and selecting datalink entries to add
+
+## DatalinkDialogComponent
+
+Main dialog component that displays all datalinks associated with an Alfresco node.
+
+### Import
+
+```typescript
+import { DatalinkDialogComponent } from 'venzia-datalink';
+```
+
+### Selector
+
+```typescript
+host: { class: 'aqua-datalink-dialog' }
+```
+
+### Opening the Dialog
+
+```typescript
+import { Component } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
+import { DatalinkDialogComponent } from 'venzia-datalink';
+
+@Component({
+  selector: 'app-my-component',
+  template: `
+    <button (click)="openDatalinkDialog()">Manage Datalinks</button>
+  `
+})
+export class MyComponent {
+  nodeId = 'workspace://SpacesStore/abc-123';
+
+  constructor(private dialog: MatDialog) {}
+
+  openDatalinkDialog() {
+    this.dialog.open(DatalinkDialogComponent, {
+      data: { nodeId: this.nodeId },
+      panelClass: 'aca-permissions-dialog-panel',
+      width: '800px'
+    });
+  }
+}
+```
+
+### Dialog Data
+
+<ParamField path="nodeId" type="string" required>
+  The ID of the Alfresco node to display datalinks for
+</ParamField>
+
+### Properties
+
+<ResponseField name="nodeId" type="string">
+  ID of the node being managed
+</ResponseField>
+
+<ResponseField name="currentSelection" type="any[]">
+  Currently selected datalink rows
+</ResponseField>
+
+<ResponseField name="datalinkList" type="DatalinkListComponent" decorator="@ViewChild">
+  Reference to the child datalink list component
+</ResponseField>
+
+### Methods
+
+#### ngAfterViewInit
+
+Lifecycle hook that subscribes to reload events from the datalink list.
+
+```typescript
+ngAfterViewInit(): void
+```
+
+#### onSelect
+
+Handles selection changes in the datalink list.
+
+```typescript
+onSelect(selectionList: any[]): void
+```
+
+<ParamField path="selectionList" type="any[]">
+  Array of selected datalink row objects
+</ParamField>
+
+#### onError
+
+Handles errors from the datalink list.
+
+```typescript
+onError(errorMessage: string): void
+```
+
+<ParamField path="errorMessage" type="string">
+  Error message to display
+</ParamField>
+
+#### openAddDataLinkDialog
+
+Opens the add datalink dialog.
+
+```typescript
+openAddDataLinkDialog(event: Event): void
+```
+
+#### onRemoveSelectionRows
+
+Removes selected rows from the datalink.
+
+```typescript
+onRemoveSelectionRows(event: Event): void
+```
+
+#### reload
+
+Reloads the dialog with fresh data.
+
+```typescript
+reload(): void
+```
+
+### Example Usage
+
+<CodeGroup>
+```typescript Component Usage
+import { Component } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
+import { DatalinkDialogComponent } from 'venzia-datalink';
+import { Store } from '@ngrx/store';
+import { AppStore } from '@alfresco/aca-shared/store';
+
+@Component({
+  selector: 'app-document-actions',
+  template: `
+    <button 
+      mat-button 
+      [disabled]="!selectedNode"
+      (click)="manageDatalinks()">
+      <mat-icon>link</mat-icon>
+      Manage Datalinks
+    </button>
+  `
+})
+export class DocumentActionsComponent {
+  selectedNode: any;
+
+  constructor(
+    private dialog: MatDialog,
+    private store: Store<AppStore>
+  ) {}
+
+  manageDatalinks() {
+    if (!this.selectedNode) return;
+
+    const dialogRef = this.dialog.open(DatalinkDialogComponent, {
+      data: { nodeId: this.selectedNode.id },
+      panelClass: 'aca-permissions-dialog-panel',
+      width: '800px',
+      height: '600px',
+      disableClose: false
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      console.log('Dialog closed with result:', result);
+      // Refresh your view if needed
+    });
+  }
+}
+```
+
+```html Template Example
+<mat-dialog-content>
+  <aqua-datalink-list
+    #datalinkList
+    [nodeId]="nodeId"
+    (select)="onSelect($event)"
+    (error)="onError($event)">
+  </aqua-datalink-list>
+</mat-dialog-content>
+
+<mat-dialog-actions>
+  <button 
+    mat-button 
+    (click)="openAddDataLinkDialog($event)"
+    color="primary">
+    Add
+  </button>
+  <button 
+    mat-button 
+    [disabled]="currentSelection.length === 0"
+    (click)="onRemoveSelectionRows($event)"
+    color="warn">
+    Remove Selected
+  </button>
+  <button 
+    mat-button 
+    mat-dialog-close>
+    Close
+  </button>
+</mat-dialog-actions>
+```
+</CodeGroup>
+
+---
+
+## AddDatalinkDialogComponent
+
+Dialog component for searching and selecting external data to add as datalinks.
+
+### Import
+
+```typescript
+import { AddDatalinkDialogComponent } from 'venzia-datalink';
+```
+
+### Selector
+
+```typescript
+'aqua-datalink-add-dialog'
+```
+
+### Opening the Dialog
+
+This dialog is typically opened via the `VenziaDatalinkSearchDialogService`, but can also be opened directly:
+
+```typescript
+import { Component } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
+import { AddDatalinkDialogComponent } from 'venzia-datalink';
+import { Subject } from 'rxjs';
+
+@Component({
+  selector: 'app-my-component',
+  template: `<button (click)="openAddDialog()">Add Data</button>`
+})
+export class MyComponent {
+  constructor(private dialog: MatDialog) {}
+
+  openAddDialog() {
+    const confirm = new Subject();
+    
+    confirm.subscribe({
+      next: (selections) => {
+        console.log('User selected:', selections);
+      },
+      complete: () => {
+        console.log('Dialog closed');
+      }
+    });
+
+    this.dialog.open(AddDatalinkDialogComponent, {
+      data: {
+        nodeId: 'workspace://SpacesStore/abc-123',
+        dataLink: this.datalinkConfig,
+        title: 'Add Customer Data',
+        confirm: confirm
+      },
+      panelClass: 'adf-add-permission-dialog',
+      width: '630px'
+    });
+  }
+}
+```
+
+### Dialog Data Interface
+
+```typescript
+export interface AddDatalinkDialogData {
+  title?: string;
+  nodeId: string;
+  dataLink: any;
+  confirm: Subject<NodeEntry[]>;
+}
+```
+
+<ParamField path="title" type="string">
+  Optional dialog title
+</ParamField>
+
+<ParamField path="nodeId" type="string" required>
+  ID of the target Alfresco node
+</ParamField>
+
+<ParamField path="dataLink" type="any" required>
+  Datalink configuration object
+</ParamField>
+
+<ParamField path="confirm" type="Subject<NodeEntry[]>" required>
+  RxJS Subject that emits selected items when user confirms
+</ParamField>
+
+### Properties
+
+<ResponseField name="currentSelection" type="any[]">
+  Array of currently selected items
+</ResponseField>
+
+<ResponseField name="data" type="AddDatalinkDialogData" decorator="@Inject(MAT_DIALOG_DATA)">
+  Dialog data injected from parent
+</ResponseField>
+
+### Methods
+
+#### onSelect
+
+Handles selection changes in the search results.
+
+```typescript
+onSelect(items: any[]): void
+```
+
+<ParamField path="items" type="any[]">
+  Array of selected item objects
+</ParamField>
+
+#### onAddClicked
+
+Handles the add button click, emitting selections and closing dialog.
+
+```typescript
+onAddClicked(): void
+```
+
+### Example Usage
+
+<CodeGroup>
+```typescript Using the Service (Recommended)
+import { Component } from '@angular/core';
+import { VenziaDatalinkSearchDialogService } from 'venzia-datalink';
+import { Node } from '@alfresco/js-api';
+
+@Component({
+  selector: 'app-node-actions',
+  template: `
+    <button (click)="addDatalinks()">Add Customer Data</button>
+  `
+})
+export class NodeActionsComponent {
+  node: Node;
+  datalinkConfig: any;
+
+  constructor(
+    private datalinkDialogService: VenziaDatalinkSearchDialogService
+  ) {}
+
+  addDatalinks() {
+    this.datalinkDialogService
+      .openAddDatalinkDialog(this.node, this.datalinkConfig, 'Select Customers')
+      .subscribe(
+        (selections) => {
+          console.log('Added', selections.length, 'datalinks');
+        },
+        (error) => {
+          console.error('Error adding datalinks:', error);
+        }
+      );
+  }
+}
+```
+
+```html Dialog Template
+<h2 mat-dialog-title>{{ data.title || 'Add Datalink' }}</h2>
+
+<mat-dialog-content>
+  <aqua-datalink-add-panel
+    [dataLink]="data.dataLink"
+    (select)="onSelect($event)">
+  </aqua-datalink-add-panel>
+</mat-dialog-content>
+
+<mat-dialog-actions>
+  <button 
+    mat-button 
+    (click)="onAddClicked()"
+    [disabled]="currentSelection.length === 0"
+    color="primary">
+    Add ({{ currentSelection.length }})
+  </button>
+  <button mat-button mat-dialog-close>Cancel</button>
+</mat-dialog-actions>
+```
+</CodeGroup>
+
+## Implementation Details
+
+<CodeGroup>
+```typescript DatalinkDialogComponent
+import { Component, Inject, ViewEncapsulation, ViewChild, AfterViewInit } from '@angular/core';
+import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
+import { DatalinkListComponent } from '../../components/datalink-list/datalink-list.component';
+import { AppStore, SnackbarErrorAction } from '@alfresco/aca-shared/store';
+import { Store } from '@ngrx/store';
+
+@Component({
+  host: { class: 'aqua-datalink-dialog' },
+  encapsulation: ViewEncapsulation.None,
+  styleUrls: ['./datalink-dialog.component.scss'],
+  templateUrl: './datalink-dialog.component.html'
+})
+export class DatalinkDialogComponent implements AfterViewInit {
+  @ViewChild('datalinkList')
+  datalinkList: DatalinkListComponent;
+
+  nodeId: string;
+  currentSelection: any[] = [];
+
+  constructor(
+    @Inject(MAT_DIALOG_DATA) data: any,
+    private dialog: MatDialog,
+    private store: Store<AppStore>
+  ) {
+    this.nodeId = data.nodeId;
+  }
+
+  ngAfterViewInit() {
+    this.datalinkList.reloadDialog.subscribe(() => {
+      this.reload();
+    });
+  }
+
+  onSelect(selectionList: any[]) {
+    this.currentSelection = selectionList;
+  }
+
+  onError(errorMessage: string) {
+    this.store.dispatch(new SnackbarErrorAction(errorMessage));
+  }
+
+  openAddDataLinkDialog(event: Event) {
+    this.datalinkList.openAddDatalinkDialog(event);
+  }
+
+  onRemoveSelectionRows(event: Event) {
+    this.datalinkList.deleteSelectRows(event);
+  }
+
+  reload() {
+    this.dialog.open(DatalinkDialogComponent, {
+      data: { nodeId: this.nodeId },
+      panelClass: 'aca-permissions-dialog-panel',
+      width: '800px'
+    });
+  }
+}
+```
+
+```typescript AddDatalinkDialogComponent
+import { Component, Inject } from '@angular/core';
+import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { AddDatalinkDialogData } from './datalink-add-data.interface';
+
+@Component({
+  selector: 'aqua-datalink-add-dialog',
+  templateUrl: './datalink-add-dialog.component.html'
+})
+export class AddDatalinkDialogComponent {
+  currentSelection: any[] = [];
+
+  constructor(@Inject(MAT_DIALOG_DATA) public data: AddDatalinkDialogData) {}
+
+  onSelect(items: any[]) {
+    this.currentSelection = items;
+  }
+
+  onAddClicked() {
+    this.data.confirm.next(this.currentSelection);
+    this.data.confirm.complete();
+  }
+}
+```
+</CodeGroup>
+
+## Styling
+
+Both components support custom styling through:
+- `ViewEncapsulation.None` for global styling
+- Panel classes for Material dialog customization
+- Host class bindings
+
+## Dependencies
+
+- `@angular/core`: Angular framework
+- `@angular/material/dialog`: Material dialogs
+- `@alfresco/aca-shared/store`: State management
+- `@ngrx/store`: Redux store
+
+## See Also
+
+- [VenziaDatalinkSearchDialogService](/api/services/datalink-search) - Service for opening these dialogs
+- [Datalink List Component](/api/components/datalink-list) - Component used in main dialog
+- [Datalink Add Panel Component](/api/components/datalink-search#datalink-add-panel) - Component used in add dialog

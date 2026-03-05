@@ -1,0 +1,501 @@
+---
+title: Content Model Configuration
+description: Define Alfresco content model aspects and properties for Venzia Datalinks
+---
+
+## Overview
+
+Venzia Datalinks integrates with Alfresco Content Services through custom content model aspects. Each datalink requires a corresponding aspect in your Alfresco content model to store the reference to the external entity.
+
+## Content Model Structure
+
+The Venzia Datalinks content model is defined in XML format following Alfresco's content model schema:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<model name="dlnk:venzia" xmlns="http://www.alfresco.org/model/dictionary/1.0">
+
+   <description>Custom Model of Alfresco DataLink</description>
+   <author>Venzia</author>
+   <version>1.0</version>
+
+   <imports>
+      <import uri="http://www.alfresco.org/model/dictionary/1.0" prefix="d"/>
+      <import uri="http://www.alfresco.org/model/content/1.0" prefix="cm"/>
+   </imports>
+
+   <namespaces>
+      <namespace uri="http://venzia.es/model/datalink/1.0" prefix="dlnk"/>
+   </namespaces>
+
+   <aspects>
+      <aspect name="dlnk:employee">
+         <title>Employee</title>
+          <properties>
+            <property name="dlnk:employee">
+               <type>d:text</type>
+                <index enabled="true">
+                    <atomic>true</atomic>
+                    <stored>false</stored>
+                    <tokenised>false</tokenised>
+                </index>
+            </property>
+         </properties>
+      </aspect>
+      
+      <aspect name="dlnk:departm">
+         <title>Departm</title>
+          <properties>
+            <property name="dlnk:departm">
+               <type>d:text</type>
+                 <index enabled="true">
+                    <atomic>true</atomic>
+                    <stored>false</stored>
+                    <tokenised>false</tokenised>
+                </index>
+            </property>
+         </properties>
+      </aspect>
+   </aspects>
+</model>
+```
+
+## Model Elements
+
+### Model Declaration
+
+<ParamField path="model.name" type="string" required>
+  Unique identifier for the content model. Convention is `prefix:modelname`.
+  
+  **Example:** `"dlnk:venzia"`
+</ParamField>
+
+<ParamField path="model.description" type="string">
+  Human-readable description of the model's purpose.
+  
+  **Example:** `"Custom Model of Alfresco DataLink"`
+</ParamField>
+
+<ParamField path="model.author" type="string">
+  Organization or individual who created the model.
+  
+  **Example:** `"Venzia"`
+</ParamField>
+
+<ParamField path="model.version" type="string">
+  Version number of the content model.
+  
+  **Example:** `"1.0"`
+</ParamField>
+
+### Imports
+
+Required Alfresco base models must be imported:
+
+```xml
+<imports>
+   <import uri="http://www.alfresco.org/model/dictionary/1.0" prefix="d"/>
+   <import uri="http://www.alfresco.org/model/content/1.0" prefix="cm"/>
+</imports>
+```
+
+<Note>
+These imports provide access to Alfresco's standard data types (`d:text`, `d:int`, etc.) and content model structures (`cm:content`, `cm:folder`, etc.).
+</Note>
+
+### Namespace Declaration
+
+<ParamField path="namespace.uri" type="string" required>
+  Unique URI that identifies your custom namespace. Should be a URL-like format.
+  
+  **Example:** `"http://venzia.es/model/datalink/1.0"`
+</ParamField>
+
+<ParamField path="namespace.prefix" type="string" required>
+  Short prefix used in aspect and property names throughout the system.
+  
+  **Example:** `"dlnk"`
+</ParamField>
+
+```xml
+<namespaces>
+   <namespace uri="http://venzia.es/model/datalink/1.0" prefix="dlnk"/>
+</namespaces>
+```
+
+---
+
+## Aspect Definition
+
+Each datalink requires a dedicated aspect in the content model. Aspects define properties that can be applied to documents.
+
+### Aspect Structure
+
+<CodeGroup>
+
+```xml Employee Aspect
+<aspect name="dlnk:employee">
+   <title>Employee</title>
+    <properties>
+      <property name="dlnk:employee">
+         <type>d:text</type>
+          <index enabled="true">
+              <atomic>true</atomic>
+              <stored>false</stored>
+              <tokenised>false</tokenised>
+          </index>
+      </property>
+   </properties>
+</aspect>
+```
+
+```xml Department Aspect
+<aspect name="dlnk:departm">
+   <title>Departm</title>
+    <properties>
+      <property name="dlnk:departm">
+         <type>d:text</type>
+           <index enabled="true">
+              <atomic>true</atomic>
+              <stored>false</stored>
+              <tokenised>false</tokenised>
+          </index>
+      </property>
+   </properties>
+</aspect>
+```
+
+</CodeGroup>
+
+### Aspect Properties
+
+<ParamField path="aspect.name" type="string" required>
+  Fully qualified name of the aspect using the namespace prefix.
+  
+  **Format:** `prefix:localName`
+  
+  **Example:** `"dlnk:employee"`, `"dlnk:departm"`
+</ParamField>
+
+<ParamField path="aspect.title" type="string" required>
+  Human-readable title displayed in the Alfresco UI.
+  
+  **Example:** `"Employee"`, `"Departm"`
+</ParamField>
+
+---
+
+## Property Definition
+
+Each aspect contains one property that stores the linked entity's primary key value.
+
+### Property Elements
+
+<ParamField path="property.name" type="string" required>
+  Fully qualified property name. Must match the `aspectPropertyName` in your datalink JSON configuration.
+  
+  **Example:** `"dlnk:employee"`, `"dlnk:departm"`
+</ParamField>
+
+<ParamField path="property.type" type="string" required>
+  Alfresco data type for the property. For datalinks, use `d:text` to store the primary key value.
+  
+  **Options:**
+  - `d:text` - Text string (recommended for datalinks)
+  - `d:int` - Integer number
+  - `d:long` - Long number
+  - `d:boolean` - Boolean value
+  - `d:date` - Date/time value
+  
+  **Example:** `"d:text"`
+</ParamField>
+
+### Index Configuration
+
+The `index` element configures how Alfresco indexes the property for search:
+
+```xml
+<index enabled="true">
+    <atomic>true</atomic>
+    <stored>false</stored>
+    <tokenised>false</tokenised>
+</index>
+```
+
+<ParamField path="index.enabled" type="boolean" default="true">
+  Enable indexing for search functionality.
+  
+  **Recommended:** `true`
+</ParamField>
+
+<ParamField path="index.atomic" type="boolean" default="true">
+  Index the entire value as a single unit. For primary keys, this should be `true`.
+  
+  **Recommended:** `true`
+</ParamField>
+
+<ParamField path="index.stored" type="boolean" default="false">
+  Store the value in the search index. For properties stored in the database, this can be `false`.
+  
+  **Recommended:** `false`
+</ParamField>
+
+<ParamField path="index.tokenised" type="boolean" default="false">
+  Break the value into tokens for full-text search. For primary keys, this should be `false`.
+  
+  **Recommended:** `false`
+</ParamField>
+
+<Warning>
+For datalink properties that store primary keys, use:
+- `atomic: true`
+- `stored: false`
+- `tokenised: false`
+
+This ensures exact matching when searching for linked documents.
+</Warning>
+
+---
+
+## Deployment
+
+### AMP Module Structure
+
+Content model XML files are deployed as part of an Alfresco Module Package (AMP):
+
+```
+venzia-datalink-module/
+├── src/main/resources/
+│   └── alfresco/
+│       └── module/
+│           └── aqua-datalink/
+│               ├── model/
+│               │   └── datalink-model.xml
+│               └── module.properties
+```
+
+### Module Properties
+
+Ensure your `module.properties` includes:
+
+```properties
+module.id=aqua-datalink
+module.version=1.0
+module.title=Venzia Datalinks
+module.description=Content model for Venzia Datalinks integration
+```
+
+### Model Deployment Location
+
+<Note>
+Place your content model XML file at:
+
+`alfresco/module/{module-id}/model/datalink-model.xml`
+
+Alfresco automatically loads models from this location on startup.
+</Note>
+
+---
+
+## Linking Aspects to Datalinks
+
+The connection between content model aspects and datalink JSON configurations is established through naming:
+
+<Steps>
+  <Step title="Define the Aspect">
+    Create an aspect in your content model XML:
+    ```xml
+    <aspect name="dlnk:employee">
+      <title>Employee</title>
+      <properties>
+        <property name="dlnk:employee">
+          <type>d:text</type>
+        </property>
+      </properties>
+    </aspect>
+    ```
+  </Step>
+  
+  <Step title="Reference in Datalink JSON">
+    Use the same aspect name in your datalink configuration:
+    ```json
+    {
+      "name": "employee",
+      "aspectName": "dlnk:employee",
+      "aspectPropertyName": "dlnk:employee"
+    }
+    ```
+  </Step>
+  
+  <Step title="Apply to Documents">
+    Users can now apply the `dlnk:employee` aspect to documents in Alfresco Share, which activates the Venzia Datalinks widget.
+  </Step>
+</Steps>
+
+---
+
+## Creating Custom Aspects
+
+To create a new datalink aspect:
+
+<Accordion title="Step-by-Step: Creating a Customer Datalink">
+
+**1. Add aspect to content model XML:**
+
+```xml
+<aspect name="dlnk:customer">
+   <title>Customer</title>
+    <properties>
+      <property name="dlnk:customer">
+         <type>d:text</type>
+          <index enabled="true">
+              <atomic>true</atomic>
+              <stored>false</stored>
+              <tokenised>false</tokenised>
+          </index>
+      </property>
+   </properties>
+</aspect>
+```
+
+**2. Create corresponding datalink JSON file:**
+
+```json
+{
+  "name": "customer",
+  "title": "Customer",
+  "aspectName": "dlnk:customer",
+  "aspectPropertyName": "dlnk:customer",
+  "connectorRest": {
+    "url": "http://api.example.com/customers/search"
+  },
+  "columns": [
+    {
+      "primaryKey": true,
+      "name": "customer_id",
+      "label": "ID",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "primaryKey": false,
+      "name": "company_name",
+      "label": "Company",
+      "type": "text"
+    }
+  ]
+}
+```
+
+**3. Deploy and restart Alfresco**
+
+</Accordion>
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Consistent Naming" icon="signature">
+    Use the same name for aspect and property (e.g., `dlnk:employee` for both)
+  </Card>
+  <Card title="Text Data Type" icon="font">
+    Always use `d:text` for datalink properties to store primary keys
+  </Card>
+  <Card title="Disable Tokenization" icon="scissors">
+    Set `tokenised: false` to ensure exact matching of linked IDs
+  </Card>
+  <Card title="Version Control" icon="code-branch">
+    Increment model version when making changes to deployed aspects
+  </Card>
+</CardGroup>
+
+---
+
+## Advanced Configuration
+
+### Multiple Properties per Aspect
+
+While datalinks typically use a single property, you can add additional properties to store metadata:
+
+```xml
+<aspect name="dlnk:employee">
+   <title>Employee</title>
+    <properties>
+      <property name="dlnk:employee">
+         <type>d:text</type>
+      </property>
+      <property name="dlnk:employeeName">
+         <type>d:text</type>
+      </property>
+      <property name="dlnk:employeeDepartment">
+         <type>d:text</type>
+      </property>
+   </properties>
+</aspect>
+```
+
+<Note>
+Only the property specified in `aspectPropertyName` is managed by Venzia Datalinks. Additional properties can be used for custom business logic or reporting.
+</Note>
+
+### Mandatory vs Optional Aspects
+
+You can make aspect properties mandatory:
+
+```xml
+<property name="dlnk:employee">
+   <type>d:text</type>
+   <mandatory>true</mandatory>
+</property>
+```
+
+<Warning>
+Making datalink properties mandatory will prevent users from saving documents without linking an entity. Use with caution.
+</Warning>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Aspect not available in Alfresco Share">
+    **Possible causes:**
+    - Content model XML has syntax errors
+    - Model file not in correct deployment location
+    - Alfresco not restarted after deployment
+    - Namespace prefix conflicts with existing models
+    
+    **Solution:** Check Alfresco logs for model loading errors and verify file location.
+  </Accordion>
+  
+  <Accordion title="Property value not saved">
+    **Possible causes:**
+    - Property name mismatch between aspect and datalink JSON
+    - Property type incompatible with data being stored
+    
+    **Solution:** Verify `aspectPropertyName` in JSON matches property name in XML.
+  </Accordion>
+  
+  <Accordion title="Search not returning linked documents">
+    **Possible causes:**
+    - Index configuration incorrect (`tokenised: true` or `atomic: false`)
+    - Solr index not updated
+    
+    **Solution:** Check index configuration and trigger Solr reindex if needed.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Datalink JSON Schema" icon="brackets-curly" href="/configuration/datalink-json">
+    Learn how to configure datalink JSON files
+  </Card>
+  <Card title="REST Connector Setup" icon="server" href="/configuration/rest-connectors">
+    Configure REST API authentication and integration
+  </Card>
+</CardGroup>

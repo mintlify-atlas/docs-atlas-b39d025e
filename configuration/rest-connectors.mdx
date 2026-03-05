@@ -1,0 +1,529 @@
+---
+title: REST Connector Configuration
+description: Configure REST API integration and authentication for Venzia Datalinks
+---
+
+## Overview
+
+The REST connector is the bridge between Venzia Datalinks and external data sources. Each datalink uses a REST connector to query external APIs and retrieve entity data for linking to Alfresco documents.
+
+## Connector Configuration
+
+The REST connector is defined within the `connectorRest` object in your datalink JSON file:
+
+<CodeGroup>
+
+```json No Authentication
+{
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/public/employees/search",
+    "authentication": {
+      "type": "none",
+      "username": "user2019",
+      "password": "g3n3r4l"
+    },
+    "searchParam": "query"
+  }
+}
+```
+
+```json Basic Authentication
+{
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/private/departments/search",
+    "authentication": {
+      "type": "basic",
+      "username": "user2019",
+      "password": "g3n3r4l"
+    },
+    "searchParam": "query"
+  }
+}
+```
+
+</CodeGroup>
+
+## Configuration Properties
+
+### URL Configuration
+
+<ParamField path="url" type="string" required>
+  Full HTTP(S) URL of the REST API endpoint that handles search requests.
+  
+  The endpoint must:
+  - Accept GET requests with a query parameter
+  - Return a JSON array of entity objects
+  - Be accessible from the Alfresco server
+  
+  **Examples:**
+  - `http://localhost:3005/api/v1/public/employees/search`
+  - `https://api.example.com/v2/departments/search`
+  - `http://internal-api:8080/entities/find`
+</ParamField>
+
+<Note>
+The URL should point to a search endpoint, not a direct entity retrieval endpoint. Users will enter search terms in the Alfresco Share UI, and the connector will append them as query parameters.
+</Note>
+
+### Search Parameter
+
+<ParamField path="searchParam" type="string" default="query">
+  The query parameter name used to send the user's search input to the API.
+  
+  **Default:** `"query"`
+  
+  **Example:** With `searchParam: "query"`, user search for "John" becomes:
+  ```
+  GET http://localhost:3005/api/v1/public/employees/search?query=John
+  ```
+  
+  With `searchParam: "search"`, the same search becomes:
+  ```
+  GET http://localhost:3005/api/v1/public/employees/search?search=John
+  ```
+</ParamField>
+
+---
+
+## Authentication Configuration
+
+The `authentication` object defines how the connector authenticates with the external API.
+
+<ParamField path="authentication.type" type="string" required>
+  Authentication method used for API requests.
+  
+  **Supported values:**
+  - `"none"` - No authentication (public API)
+  - `"basic"` - HTTP Basic Authentication
+  
+  **Example:** `"basic"`
+</ParamField>
+
+### No Authentication
+
+For public APIs that don't require authentication:
+
+```json
+{
+  "authentication": {
+    "type": "none"
+  }
+}
+```
+
+<Note>
+Even when `type` is `"none"`, the `username` and `password` fields may be present in configuration files but are ignored by the connector.
+</Note>
+
+### Basic Authentication
+
+For APIs requiring HTTP Basic Authentication:
+
+```json
+{
+  "authentication": {
+    "type": "basic",
+    "username": "user2019",
+    "password": "g3n3r4l"
+  }
+}
+```
+
+<ParamField path="authentication.username" type="string">
+  Username for Basic Authentication. Required when `type: "basic"`.
+  
+  **Example:** `"user2019"`
+</ParamField>
+
+<ParamField path="authentication.password" type="string">
+  Password for Basic Authentication. Required when `type: "basic"`.
+  
+  **Example:** `"g3n3r4l"`
+</ParamField>
+
+<Warning>
+Basic Authentication credentials are stored in plain text in the JSON configuration file. Ensure proper file system permissions are set to protect sensitive credentials.
+</Warning>
+
+---
+
+## API Response Format
+
+### Expected Response Structure
+
+The REST API must return a JSON array of objects. Each object represents one searchable entity:
+
+```json
+[
+  {
+    "emp_no": "10001",
+    "first_name": "John",
+    "last_name": "Doe",
+    "hire_date": "15/01/2020"
+  },
+  {
+    "emp_no": "10002",
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "hire_date": "22/03/2019"
+  }
+]
+```
+
+### Response Requirements
+
+<CardGroup cols={2}>
+  <Card title="JSON Array" icon="brackets-square">
+    Response must be a JSON array, even for single results
+  </Card>
+  <Card title="Matching Fields" icon="equals">
+    Object properties must match column names in datalink configuration
+  </Card>
+  <Card title="Primary Key" icon="key">
+    Each object must include the primary key field defined in columns
+  </Card>
+  <Card title="Consistent Structure" icon="table">
+    All objects should have the same property structure
+  </Card>
+</CardGroup>
+
+---
+
+## Complete Examples
+
+### Employee Datalink with Public API
+
+```json
+{
+  "name": "employee",
+  "title": "Company Employee",
+  "description": "Example to datalink demo",
+  "aspectName": "dlnk:employee",
+  "aspectPropertyName": "dlnk:employee",
+  "order": 10,
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/public/employees/search",
+    "authentication": {
+      "type": "none",
+      "username": "user2019",
+      "password": "g3n3r4l"
+    },
+    "searchParam": "query"
+  },
+  "columns": [
+    {
+      "primaryKey": true,
+      "name": "emp_no",
+      "label": "Id",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "primaryKey": false,
+      "name": "first_name",
+      "label": "First Name",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "last_name",
+      "label": "Last Name",
+      "type": "text"
+    },
+    {
+      "primaryKey": false,
+      "name": "hire_date",
+      "label": "Hire Date",
+      "type": "date",
+      "format": "dd/MM/yyyy"
+    }
+  ]
+}
+```
+
+### Department Datalink with Basic Authentication
+
+```json
+{
+  "name": "departments",
+  "title": "Company Departments",
+  "description": "Example to datalink demo",
+  "aspectName": "dlnk:departm",
+  "aspectPropertyName": "dlnk:departm",
+  "order": 20,
+  "connectorRest": {
+    "url": "http://localhost:3005/api/v1/private/departments/search",
+    "authentication": {
+      "type": "basic",
+      "username": "user2019",
+      "password": "g3n3r4l"
+    },
+    "searchParam": "query"
+  },
+  "columns": [
+    {
+      "primaryKey": true,
+      "name": "dept_no",
+      "label": "Id",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "primaryKey": false,
+      "name": "dept_name",
+      "label": "Name",
+      "type": "text"
+    }
+  ]
+}
+```
+
+---
+
+## Request Flow
+
+Here's how a search request flows through the connector:
+
+<Steps>
+  <Step title="User Enters Search">
+    User types search text (e.g., "John") in the Venzia Datalinks widget in Alfresco Share
+  </Step>
+  
+  <Step title="Connector Builds Request">
+    Venzia Datalinks constructs the HTTP request:
+    - Method: GET
+    - URL: Configured `url` + `?` + `searchParam` + `=` + user input
+    - Headers: Authentication headers if configured
+  </Step>
+  
+  <Step title="API Returns Results">
+    External API processes the search and returns JSON array of matching entities
+  </Step>
+  
+  <Step title="Display Results">
+    Venzia Datalinks parses the response and displays matching entities according to column configuration
+  </Step>
+  
+  <Step title="User Links Entity">
+    User selects an entity, and its primary key is stored in the document's aspect property
+  </Step>
+</Steps>
+
+---
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use HTTPS" icon="lock">
+    Always use HTTPS URLs for production APIs to encrypt credentials in transit
+  </Card>
+  <Card title="Restrict File Access" icon="shield">
+    Set proper file permissions on JSON configuration files (chmod 600)
+  </Card>
+  <Card title="Network Security" icon="network-wired">
+    Use firewall rules to restrict API access to Alfresco server IPs only
+  </Card>
+  <Card title="Credential Rotation" icon="arrows-rotate">
+    Regularly rotate API credentials and update configuration files
+  </Card>
+</CardGroup>
+
+<Warning>
+**Security Considerations:**
+
+- Credentials are stored in plain text in configuration files
+- Ensure JSON files are not accessible via web server
+- Use service accounts with minimal required permissions
+- Consider using API keys or tokens instead of user credentials
+</Warning>
+
+---
+
+## Testing REST Connectors
+
+### Manual Testing with curl
+
+Test your API endpoint before configuring it in Venzia Datalinks:
+
+<CodeGroup>
+
+```bash No Authentication
+curl "http://localhost:3005/api/v1/public/employees/search?query=John"
+```
+
+```bash Basic Authentication
+curl -u user2019:g3n3r4l \
+  "http://localhost:3005/api/v1/private/departments/search?query=Sales"
+```
+
+</CodeGroup>
+
+### Verifying Response Format
+
+Ensure the API response matches your column configuration:
+
+<Accordion title="Example: Validating Employee API Response">
+
+**Your column configuration:**
+```json
+"columns": [
+  {"name": "emp_no", "label": "Id"},
+  {"name": "first_name", "label": "First Name"},
+  {"name": "last_name", "label": "Last Name"}
+]
+```
+
+**Expected API response:**
+```json
+[
+  {
+    "emp_no": "10001",
+    "first_name": "John",
+    "last_name": "Doe"
+  }
+]
+```
+
+**Validation checklist:**
+- ✅ Response is JSON array
+- ✅ Object contains `emp_no` field
+- ✅ Object contains `first_name` field
+- ✅ Object contains `last_name` field
+- ✅ Field names match exactly (case-sensitive)
+
+</Accordion>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection timeout or refused">
+    **Possible causes:**
+    - API endpoint URL is incorrect
+    - API server is down or unreachable
+    - Network firewall blocking connection
+    - Wrong port number in URL
+    
+    **Solution:** 
+    - Verify URL is accessible from Alfresco server
+    - Test with curl from the Alfresco server host
+    - Check firewall rules and network connectivity
+  </Accordion>
+  
+  <Accordion title="401 Unauthorized error">
+    **Possible causes:**
+    - Authentication type is `"none"` but API requires authentication
+    - Username or password is incorrect
+    - API uses different authentication method (OAuth, API key, etc.)
+    
+    **Solution:**
+    - Verify credentials are correct
+    - Confirm API uses Basic Authentication
+    - Test credentials with curl
+  </Accordion>
+  
+  <Accordion title="Search returns empty results">
+    **Possible causes:**
+    - Search parameter name doesn't match API expectations
+    - API requires minimum search length
+    - API returns 200 but empty array for no matches
+    
+    **Solution:**
+    - Verify `searchParam` matches API documentation
+    - Test with known entities that exist in the system
+    - Check API documentation for search requirements
+  </Accordion>
+  
+  <Accordion title="Malformed JSON response error">
+    **Possible causes:**
+    - API returns HTML error page instead of JSON
+    - API returns single object instead of array
+    - Response contains invalid JSON syntax
+    
+    **Solution:**
+    - Verify API returns JSON array format
+    - Check API error handling for non-existent searches
+    - Test response with JSON validator
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Advanced Configuration
+
+### Custom Headers
+
+While not directly configurable in the current version, you can extend the connector to support custom headers by modifying the Java connector implementation.
+
+### Timeout Configuration
+
+Connection timeouts are configured at the system level:
+
+```properties
+# alfresco-global.properties
+datalink.rest.timeout=30000
+datalink.rest.connectionTimeout=10000
+```
+
+### Proxy Configuration
+
+If your Alfresco server requires a proxy to access external APIs:
+
+```properties
+# alfresco-global.properties
+http.proxyHost=proxy.example.com
+http.proxyPort=8080
+http.proxyUser=proxyuser
+http.proxyPassword=proxypass
+```
+
+---
+
+## API Development Guidelines
+
+If you're developing a custom API for Venzia Datalinks integration:
+
+<CardGroup cols={2}>
+  <Card title="Return Arrays" icon="brackets-square">
+    Always return JSON arrays, even for single or zero results
+  </Card>
+  <Card title="Consistent Schema" icon="table">
+    Use consistent property names across all returned objects
+  </Card>
+  <Card title="Pagination" icon="list-ol">
+    Return top 50-100 results by default for performance
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Return empty arrays for no matches, not error responses
+  </Card>
+</CardGroup>
+
+### Recommended API Endpoint Pattern
+
+```
+GET /api/v1/[entity-type]/search?query=[searchterm]
+
+Response: 200 OK
+[
+  {
+    "id": "unique-identifier",
+    "displayField1": "value1",
+    "displayField2": "value2",
+    "dateField": "formatted-date"
+  }
+]
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Datalink JSON Schema" icon="brackets-curly" href="/configuration/datalink-json">
+    Learn about complete datalink configuration options
+  </Card>
+  <Card title="Content Models" icon="diagram-project" href="/configuration/content-models">
+    Understand how to define Alfresco aspects
+  </Card>
+</CardGroup>

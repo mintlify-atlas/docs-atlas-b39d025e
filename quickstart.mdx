@@ -1,80 +1,659 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get up and running with Venzia Datalinks in minutes
 ---
 
-## Get started in three steps
+## Overview
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will walk you through creating your first datalink and linking document properties to database values. We'll use the included employee datalink example to demonstrate the workflow.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Before starting, ensure you have completed the [installation](/installation) steps and have all three components running.
 </Note>
+
+## Prerequisites Checklist
+
+Verify all services are running:
+
+<Steps>
+  <Step title="Alfresco Repository">
+    Check that Alfresco is accessible at `http://localhost:8080/alfresco/`
+    
+    Default credentials: `admin` / `admin`
+  </Step>
+  
+  <Step title="Database Mock Server">
+    Verify the mock database is running on port 3005:
+    
+    ```bash
+    curl http://localhost:3005
+    # Should return: Venzia employee db mockup
+    ```
+  </Step>
+  
+  <Step title="Alfresco Content App">
+    Access ACA at `http://localhost:4200` and log in with Alfresco credentials
+  </Step>
+</Steps>
+
+## Your First Datalink
+
+### Step 1: Verify Datalink Configuration
+
+The employee datalink is already configured in the system. Let's verify it's loaded:
+
+```bash
+curl http://localhost:8080/alfresco/s/venzia/datalink/v1/datalinks
+```
+
+You should see a JSON response with available datalinks:
+
+```json
+[
+  {
+    "name": "employee",
+    "title": "Company Employee",
+    "aspectName": "dlnk:employee",
+    "order": 10
+  },
+  {
+    "name": "departments",
+    "title": "Company Departments",
+    "aspectName": "dlnk:departm",
+    "order": 20
+  }
+]
+```
+
+<Accordion title="Understanding the Employee Datalink Configuration">
+  The employee datalink is defined in `venzia-datalink/src/main/docker/datalink/datalink-employee.json`:
+
+  ```json
+  {
+    "name": "employee",
+    "title": "Company Employee",
+    "description": "Example to datalink demo",
+    "aspectName": "dlnk:employee",
+    "aspectPropertyName": "dlnk:employee",
+    "order": 10,
+    "connectorRest": {
+      "url": "http://localhost:3005/api/v1/public/employees/search",
+      "authentication": {
+        "type": "none"
+      },
+      "searchParam": "query"
+    },
+    "columns": [
+      {
+        "primaryKey": true,
+        "name": "emp_no",
+        "label": "Id",
+        "type": "text",
+        "hidden": true
+      },
+      {
+        "name": "first_name",
+        "label": "First Name",
+        "type": "text"
+      },
+      {
+        "name": "last_name",
+        "label": "Last Name",
+        "type": "text"
+      },
+      {
+        "name": "hire_date",
+        "label": "Hire Date",
+        "type": "date",
+        "format": "dd/MM/yyyy"
+      }
+    ]
+  }
+  ```
+
+  **Key Points:**
+  - Connects to a public endpoint (no authentication)
+  - Maps to the `dlnk:employee` aspect
+  - Displays employee name and hire date
+  - Uses `emp_no` as the primary key (hidden from users)
+</Accordion>
+
+### Step 2: Upload a Test Document
+
+In Alfresco Content App:
+
+<Steps>
+  <Step title="Navigate to a Folder">
+    Go to **Personal Files** or any folder where you have write permissions
+  </Step>
+  
+  <Step title="Upload a Document">
+    Click the **Upload** button or drag and drop a file
+    
+    Any file type works—try a PDF, Word document, or text file
+  </Step>
+  
+  <Step title="Verify Upload">
+    Confirm the document appears in the file list
+  </Step>
+</Steps>
+
+### Step 3: Link Employee Data to Document
+
+Now let's link the document to an employee record:
+
+<Steps>
+  <Step title="Open Datalink Editor">
+    Right-click on the uploaded document and select **Edit Datalink** from the context menu
+    
+    <Note>
+      If you don't see the "Edit Datalink" option, verify that the ACA extension is properly loaded and that you're using the correct version of ACA.
+    </Note>
+  </Step>
+  
+  <Step title="Select Employee Datalink">
+    In the datalink editor dialog:
+    1. Choose **Company Employee** from the datalink type dropdown
+    2. The form will load dynamically based on the datalink configuration
+  </Step>
+  
+  <Step title="Search for an Employee">
+    Start typing an employee name in the search field:
+    - Try searching for "Adolfo"
+    - The system queries the REST endpoint: 
+      ```
+      http://localhost:3005/api/v1/public/employees/search?query=Adolfo
+      ```
+    - Results appear in a searchable list showing:
+      - First Name
+      - Last Name
+      - Hire Date
+  </Step>
+  
+  <Step title="Select and Save">
+    1. Click on an employee from the search results
+    2. Review the selected employee information
+    3. Click **Save** to apply the datalink to the document
+    
+    The document now has the `dlnk:employee` aspect applied with the linked employee data
+  </Step>
+</Steps>
+
+### Step 4: Verify the Linked Data
+
+Confirm that the datalink was applied successfully:
+
+<Tabs>
+  <Tab title="Via ACA UI">
+    1. Select the document in ACA
+    2. Open the **Info Drawer** (click the info icon)
+    3. Expand the **Properties** section
+    4. Look for the **Employee** aspect properties
+    5. You should see the linked employee ID stored in `dlnk:employee`
+  </Tab>
+  
+  <Tab title="Via REST API">
+    Get the document properties via the Alfresco REST API:
+
+    ```bash
+    # Replace NODE_ID with your document's node ID
+    curl -u admin:admin \
+      "http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/nodes/NODE_ID?include=properties"
+    ```
+
+    Look for the `dlnk:employee` property in the response:
+
+    ```json
+    {
+      "entry": {
+        "properties": {
+          "dlnk:employee": "1",
+          "cm:name": "my-document.pdf"
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Try the Department Datalink
+
+Now let's try the department datalink, which uses basic authentication:
+
+<Steps>
+  <Step title="Right-Click the Same Document">
+    Open the datalink editor again by right-clicking on your test document
+  </Step>
+  
+  <Step title="Select Department Datalink">
+    Choose **Company Departments** from the dropdown
+  </Step>
+  
+  <Step title="Search Departments">
+    Search for a department:
+    - Try "Recursos" or "Marketing"
+    - This endpoint uses basic authentication (configured in the datalink JSON)
+    - Credentials: `user2019` / `g3n3r4l`
+  </Step>
+  
+  <Step title="Apply Department Link">
+    Select a department and save
+    
+    The document now has both aspects:
+    - `dlnk:employee`
+    - `dlnk:departm`
+  </Step>
+</Steps>
+
+<Note>
+  A document can have multiple datalink aspects applied simultaneously, allowing you to link different types of data to the same document.
+</Note>
+
+## Test the Mock Database
+
+Let's understand what's happening behind the scenes:
+
+### Employee Endpoint (Public)
+
+```bash
+# Get all employees
+curl http://localhost:3005/api/v1/public/employees/search
+
+# Search for specific employee
+curl "http://localhost:3005/api/v1/public/employees/search?query=Ana"
+```
+
+<Accordion title="Sample Response">
+```json
+[
+  {
+    "emp_no": 8,
+    "first_name": "Ana",
+    "last_name": "Cuesta",
+    "hire_date": "2002-03-25T00:00:00.000Z"
+  },
+  {
+    "emp_no": 3,
+    "first_name": "Anastasia",
+    "last_name": "Lopez",
+    "hire_date": "1999-11-04T00:00:00.000Z"
+  }
+]
+```
+</Accordion>
+
+### Department Endpoint (Authenticated)
+
+```bash
+# Get all departments (requires auth)
+curl -u user2019:g3n3r4l \
+  http://localhost:3005/api/v1/private/departments/search
+
+# Search for specific department
+curl -u user2019:g3n3r4l \
+  "http://localhost:3005/api/v1/private/departments/search?query=Marketing"
+```
+
+<Accordion title="Sample Response">
+```json
+[
+  {
+    "dept_no": 6,
+    "dept_name": "Marketing"
+  }
+]
+```
+</Accordion>
+
+## Create a Custom Datalink
+
+Now let's create your own datalink configuration:
+
+<Steps>
+  <Step title="Create Configuration File">
+    Create a new JSON file in the datalink configuration directory:
+
+    ```bash
+    cd venzia-datalink/src/main/docker/datalink
+    ```
+
+    Create `datalink-project.json`:
+
+    ```json
+    {
+      "name": "project",
+      "title": "Project Codes",
+      "description": "Link documents to project codes",
+      "aspectName": "dlnk:project",
+      "aspectPropertyName": "dlnk:project",
+      "order": 30,
+      "connectorRest": {
+        "url": "https://your-api.example.com/api/projects",
+        "authentication": {
+          "type": "basic",
+          "username": "api_user",
+          "password": "api_password"
+        },
+        "searchParam": "search"
+      },
+      "columns": [
+        {
+          "primaryKey": true,
+          "name": "project_id",
+          "label": "Project ID",
+          "type": "text",
+          "hidden": true
+        },
+        {
+          "primaryKey": false,
+          "name": "project_code",
+          "label": "Code",
+          "type": "text"
+        },
+        {
+          "primaryKey": false,
+          "name": "project_name",
+          "label": "Project Name",
+          "type": "text"
+        },
+        {
+          "primaryKey": false,
+          "name": "start_date",
+          "label": "Start Date",
+          "type": "date",
+          "format": "dd/MM/yyyy"
+        }
+      ]
+    }
+    ```
+  </Step>
+
+  <Step title="Add Content Model Aspect">
+    Edit the content model to add the new aspect:
+
+    Open `venzia-datalink/src/main/resources/alfresco/module/aqua-datalink/model/datalink-model.xml`
+
+    Add the new aspect:
+
+    ```xml
+    <aspect name="dlnk:project">
+      <title>Project</title>
+      <properties>
+        <property name="dlnk:project">
+          <type>d:text</type>
+          <index enabled="true">
+            <atomic>true</atomic>
+            <stored>false</stored>
+            <tokenised>false</tokenised>
+          </index>
+        </property>
+      </properties>
+    </aspect>
+    ```
+  </Step>
+
+  <Step title="Rebuild and Restart">
+    Rebuild the backend module and restart Alfresco:
+
+    ```bash
+    cd venzia-datalink
+    ./run.sh reload_acs
+    ```
+
+    This will:
+    1. Rebuild the ACS module
+    2. Recreate the ACS Docker image
+    3. Restart the ACS container with the new configuration
+  </Step>
+
+  <Step title="Verify New Datalink">
+    Check that the new datalink is available:
+
+    ```bash
+    curl http://localhost:8080/alfresco/s/venzia/datalink/v1/datalinks
+    ```
+
+    You should see your new "project" datalink in the list.
+  </Step>
+</Steps>
+
+## Configuration Options
+
+### Authentication Types
+
+<Tabs>
+  <Tab title="No Authentication">
+    ```json
+    "authentication": {
+      "type": "none"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Basic Authentication">
+    ```json
+    "authentication": {
+      "type": "basic",
+      "username": "your_username",
+      "password": "your_password"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Column Types
+
+<CardGroup cols={3}>
+  <Card title="Text" icon="font">
+    ```json
+    {
+      "name": "field_name",
+      "label": "Display Label",
+      "type": "text"
+    }
+    ```
+  </Card>
+  
+  <Card title="Date" icon="calendar">
+    ```json
+    {
+      "name": "date_field",
+      "label": "Date",
+      "type": "date",
+      "format": "dd/MM/yyyy"
+    }
+    ```
+  </Card>
+  
+  <Card title="Primary Key" icon="key">
+    ```json
+    {
+      "primaryKey": true,
+      "name": "id",
+      "label": "ID",
+      "type": "text",
+      "hidden": true
+    }
+    ```
+  </Card>
+</CardGroup>
+
+### Required Response Format
+
+Your REST API endpoint must return an array of objects:
+
+```json
+[
+  {
+    "field_name_1": "value1",
+    "field_name_2": "value2",
+    "date_field": "2024-01-15"
+  },
+  {
+    "field_name_1": "value3",
+    "field_name_2": "value4",
+    "date_field": "2024-02-20"
+  }
+]
+```
+
+<Warning>
+  The field names in your API response must exactly match the `name` values in your datalink column definitions.
+</Warning>
+
+## Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="HR Document Management">
+    **Scenario**: Link employee documents (contracts, evaluations) to HR database
+
+    **Configuration**:
+    ```json
+    {
+      "name": "employee",
+      "aspectName": "dlnk:employee",
+      "connectorRest": {
+        "url": "https://hr-system.company.com/api/employees",
+        "authentication": {"type": "basic", "username": "...", "password": "..."}
+      },
+      "columns": [
+        {"name": "employee_id", "primaryKey": true, "hidden": true},
+        {"name": "full_name", "label": "Employee Name"},
+        {"name": "department", "label": "Department"},
+        {"name": "position", "label": "Position"}
+      ]
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Customer Documents">
+    **Scenario**: Link customer documents to CRM system
+
+    **Configuration**:
+    ```json
+    {
+      "name": "customer",
+      "aspectName": "dlnk:customer",
+      "connectorRest": {
+        "url": "https://crm.company.com/api/customers/search",
+        "authentication": {"type": "basic", "username": "...", "password": "..."}
+      },
+      "columns": [
+        {"name": "customer_id", "primaryKey": true, "hidden": true},
+        {"name": "customer_name", "label": "Customer"},
+        {"name": "account_number", "label": "Account #"},
+        {"name": "contact_email", "label": "Email"}
+      ]
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Product Documentation">
+    **Scenario**: Link product specs and manuals to product database
+
+    **Configuration**:
+    ```json
+    {
+      "name": "product",
+      "aspectName": "dlnk:product",
+      "connectorRest": {
+        "url": "https://products.company.com/api/products",
+        "authentication": {"type": "none"}
+      },
+      "columns": [
+        {"name": "sku", "primaryKey": true, "label": "SKU"},
+        {"name": "product_name", "label": "Product Name"},
+        {"name": "category", "label": "Category"},
+        {"name": "release_date", "type": "date", "label": "Release Date"}
+      ]
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Datalink Not Appearing in List">
+    **Problem**: New datalink doesn't show up in the dropdown
+
+    **Solutions**:
+    1. Verify JSON syntax is valid
+    2. Check the datalink file is in `src/main/docker/datalink/`
+    3. Ensure the aspect exists in the content model
+    4. Restart ACS: `./run.sh reload_acs`
+    5. Check Alfresco logs for errors
+    6. Verify via API:
+       ```bash
+       curl http://localhost:8080/alfresco/s/venzia/datalink/v1/datalinks
+       ```
+  </Accordion>
+
+  <Accordion title="Can't Connect to REST Endpoint">
+    **Problem**: Search returns no results or connection errors
+
+    **Solutions**:
+    1. Test endpoint directly with curl:
+       ```bash
+       curl "http://your-api.com/endpoint?query=test"
+       ```
+    2. Check authentication credentials
+    3. Verify URL is accessible from Docker container
+    4. For localhost endpoints, use host networking or `host.docker.internal`
+    5. Check for CORS issues
+    6. Review ACS logs for connection errors
+  </Accordion>
+
+  <Accordion title="Wrong Data Displayed">
+    **Problem**: Datalink shows incorrect or missing information
+
+    **Solutions**:
+    1. Verify API response format matches column definitions
+    2. Check that field names are exactly the same
+    3. Ensure primaryKey is set on one column
+    4. Test API response:
+       ```bash
+       curl "http://localhost:3005/api/v1/public/employees/search" | jq
+       ```
+    5. Verify column types match data types (text, date, etc.)
+  </Accordion>
+
+  <Accordion title="Authentication Fails">
+    **Problem**: 401 Unauthorized errors
+
+    **Solutions**:
+    1. Verify credentials in datalink JSON
+    2. Test authentication manually:
+       ```bash
+       curl -u username:password http://your-api.com/endpoint
+       ```
+    3. Check authentication type is correct ("basic", "none")
+    4. For the mock database, use `user2019` / `g3n3r4l`
+    5. Review API server logs for auth errors
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration Reference" icon="gear" href="/configuration/overview">
+    Detailed reference for all datalink configuration options
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/services/datalink-api">
+    Explore the Datalinks REST API and services
+  </Card>
+  <Card title="Content Models" icon="diagram-project" href="/configuration/content-models">
+    Learn about custom aspects and content model design
+  </Card>
+  <Card title="Usage Guide" icon="book-open" href="/usage/edit-datalink">
+    Learn how to use datalinks in Alfresco Content App
+  </Card>
+</CardGroup>
+
+## Get Help
+
+If you need assistance:
+
+- Visit: [https://venzia.es](https://venzia.es)
+- Demo: [https://aqua.venzia.es](https://aqua.venzia.es)
+- Email: info@venzia.es

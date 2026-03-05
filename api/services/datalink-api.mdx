@@ -1,0 +1,248 @@
+---
+title: 'VenziaDatalinkApiService'
+description: 'Angular service for communicating with Alfresco datalink web scripts'
+---
+
+## Overview
+
+The `VenziaDatalinkApiService` is an Angular service that provides methods to interact with Alfresco datalink web scripts. It handles loading datalink configurations from the repository.
+
+## Import
+
+```typescript
+import { VenziaDatalinkApiService } from 'venzia-datalink';
+```
+
+## Injectable
+
+```typescript
+@Injectable({
+  providedIn: 'root'
+})
+```
+
+## Constructor
+
+```typescript
+constructor(
+  private apiService: AlfrescoApiService,
+  private logService: LogService
+)
+```
+
+<ParamField path="apiService" type="AlfrescoApiService">
+  Alfresco API service for making HTTP calls
+</ParamField>
+
+<ParamField path="logService" type="LogService">
+  ADF logging service for error handling
+</ParamField>
+
+## Methods
+
+### loadDataLink
+
+Loads the list of configured datalinks from the Alfresco repository.
+
+```typescript
+loadDataLink(): Observable<any>
+```
+
+<ParamField path="returns" type="Observable<any>">
+  Observable that emits the datalink configuration array
+</ParamField>
+
+#### Returns
+
+Returns an Observable containing an array of datalink configurations. Each configuration includes:
+- `name`: Datalink name
+- `aspectPropertyName`: Alfresco property where data is stored
+- `columns`: Array of column definitions
+- `connectorRest`: REST API configuration for external data
+
+#### Example
+
+```typescript
+import { Component, OnInit } from '@angular/core';
+import { VenziaDatalinkApiService } from 'venzia-datalink';
+
+@Component({
+  selector: 'app-my-component',
+  template: `
+    <div *ngFor="let datalink of datalinks">
+      {{ datalink.name }}
+    </div>
+  `
+})
+export class MyComponent implements OnInit {
+  datalinks: any[] = [];
+
+  constructor(private datalinkApi: VenziaDatalinkApiService) {}
+
+  ngOnInit() {
+    this.datalinkApi.loadDataLink().subscribe(
+      (data) => {
+        this.datalinks = data;
+        console.log('Loaded datalinks:', data);
+      },
+      (error) => {
+        console.error('Failed to load datalinks:', error);
+      }
+    );
+  }
+}
+```
+
+## Private Methods
+
+### handleError
+
+Handles errors from web script calls.
+
+```typescript
+private handleError(error: any): Observable<never>
+```
+
+<ParamField path="error" type="any">
+  Error object from the HTTP call
+</ParamField>
+
+<ParamField path="returns" type="Observable<never>">
+  Observable that throws the error
+</ParamField>
+
+### executeWebScript
+
+Executes an Alfresco web script with the specified parameters.
+
+```typescript
+private executeWebScript(
+  httpMethod: string,
+  scriptPath: string,
+  scriptArgs?: any,
+  contextRoot?: string,
+  servicePath?: string,
+  postBody?: any
+): Promise<any>
+```
+
+<ParamField path="httpMethod" type="string" required>
+  HTTP method: GET, POST, PUT, or DELETE
+</ParamField>
+
+<ParamField path="scriptPath" type="string" required>
+  Path to the web script (e.g., 'aqua/datalink/v1/list')
+</ParamField>
+
+<ParamField path="scriptArgs" type="any">
+  Query parameters for the web script
+</ParamField>
+
+<ParamField path="contextRoot" type="string" default="alfresco">
+  Context root for the web script
+</ParamField>
+
+<ParamField path="servicePath" type="string" default="service">
+  Service path for the web script
+</ParamField>
+
+<ParamField path="postBody" type="any">
+  Request body for POST/PUT requests
+</ParamField>
+
+## Implementation Details
+
+<CodeGroup>
+```typescript Service Implementation
+import { Injectable } from '@angular/core';
+import { LogService } from '@alfresco/adf-core';
+import { from, Observable, throwError } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { AlfrescoApiService } from '@alfresco/adf-content-services';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class VenziaDatalinkApiService {
+  constructor(
+    private apiService: AlfrescoApiService,
+    private logService: LogService
+  ) {}
+
+  loadDataLink(): Observable<any> {
+    return from(
+      this.executeWebScript('GET', 'aqua/datalink/v1/list', null, null, 'service', null)
+    ).pipe(
+      catchError((err) => this.handleError(err))
+    );
+  }
+
+  private handleError(error: any) {
+    this.logService.error(error);
+    return throwError(error || 'Server error');
+  }
+
+  private executeWebScript(
+    httpMethod: string,
+    scriptPath: string,
+    scriptArgs?: any,
+    contextRoot?: string,
+    servicePath?: string,
+    postBody?: any
+  ): Promise<any> {
+    contextRoot = contextRoot || 'alfresco';
+    servicePath = servicePath || 'service';
+    postBody = postBody || null;
+
+    const allowedMethod: string[] = ['GET', 'POST', 'PUT', 'DELETE'];
+
+    if (!httpMethod || allowedMethod.indexOf(httpMethod) === -1) {
+      throw new Error('method allowed value GET, POST, PUT and DELETE');
+    }
+
+    if (!scriptPath) {
+      throw new Error('Missing param scriptPath in executeWebScript');
+    }
+
+    const contentTypes = ['application/json'];
+    const accepts = ['application/json', 'text/html'];
+    
+    return this.apiService
+      .getInstance()
+      .contentClient.callApi(
+        scriptPath,
+        httpMethod,
+        {},
+        scriptArgs,
+        {},
+        {},
+        postBody,
+        contentTypes,
+        accepts,
+        null,
+        contextRoot + '/' + servicePath
+      );
+  }
+}
+```
+</CodeGroup>
+
+## Error Handling
+
+The service includes error handling that:
+- Logs errors using the ADF LogService
+- Returns an Observable error for component handling
+- Validates HTTP methods and required parameters
+
+## Dependencies
+
+- `@angular/core`: Angular framework
+- `@alfresco/adf-core`: ADF core services (LogService)
+- `@alfresco/adf-content-services`: Alfresco API service
+- `rxjs`: Reactive programming support
+
+## See Also
+
+- [List Datalinks Web Script](/api/webscripts/list-datalinks) - Backend web script called by this service
+- [VenziaDatalinkRestService](/api/services/datalink-rest) - Service for external REST API calls
+- [Datalink List Component](/api/components/datalink-list) - Component that uses this service

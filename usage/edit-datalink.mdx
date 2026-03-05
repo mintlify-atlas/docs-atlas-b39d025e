@@ -1,0 +1,114 @@
+---
+title: Edit DataLink
+description: Learn how to manage datalinks for documents in Alfresco Content App
+---
+
+The Edit DataLink action allows you to manage database record links associated with documents in Alfresco Content Services. This feature enables you to connect document metadata with external database records.
+
+## Prerequisites
+
+- Administrator permissions are required to manage datalinks
+- The document must not be in the Trashcan
+- The document must have compatible content properties configured by your administrator
+
+## Opening the DataLink Dialog
+
+You can access the DataLink management dialog from multiple locations in Alfresco Content App:
+
+<Steps>
+  <Step title="From the Document List">
+    1. Select a document in the file list
+    2. Click the **More Actions** button (three dots) in the toolbar
+    3. Select **Edit DataLink** from the menu
+  </Step>
+
+  <Step title="From the Document Viewer">
+    1. Open a document in the viewer
+    2. Click the **More Actions** button in the viewer toolbar
+    3. Select **Edit DataLink** from the menu
+  </Step>
+
+  <Step title="From the Context Menu">
+    1. Right-click on a document
+    2. Select **Edit DataLink** from the context menu
+  </Step>
+</Steps>
+
+<Note>
+  The Edit DataLink action is only visible to users with administrator permissions. If you don't see this option, contact your system administrator.
+</Note>
+
+## Understanding the DataLink Dialog
+
+When you open the DataLink dialog, you'll see the "Manage DataLink" window with the following components:
+
+### Tabbed Interface
+
+The dialog displays tabs for each configured datalink type. Your administrator configures these datalink types based on your organization's database schema and business requirements.
+
+- Each tab represents a different type of database connection
+- The tab label shows the datalink type name
+- Switch between tabs to manage different types of linked records
+
+### Linked Records Table
+
+Each tab displays a data table showing records currently linked to the document:
+
+- **Columns**: Display fields from the database records (configured by your administrator)
+- **Rows**: Each row represents one linked database record
+- **Multi-select**: Click checkboxes to select multiple records for bulk operations
+- **Empty state**: If no records are linked yet, you'll see "No linked data yet."
+
+### Available Actions
+
+The dialog footer provides three action buttons:
+
+<Info>
+  **Add**: Opens the search dialog to link new database records to the document
+  
+  **Delete**: Removes selected records from the document (disabled when no records are selected)
+  
+  **Close**: Closes the dialog and returns to the document view
+</Info>
+
+## Common Workflows
+
+### Adding Database Links
+
+1. Open the DataLink dialog for your document
+2. Select the appropriate tab for the type of record you want to link
+3. Click the **Add** button
+4. Use the search interface to find and select records
+5. Confirm your selection to link the records
+
+### Removing Database Links
+
+1. Open the DataLink dialog for your document
+2. Navigate to the tab containing the records you want to remove
+3. Select one or more records using the checkboxes
+4. Click the **Delete** button
+5. The selected records will be unlinked from the document
+
+<Tip>
+  You can select multiple records at once and delete them in a single operation. This is useful when you need to remove several outdated links.
+</Tip>
+
+### Viewing Linked Data
+
+1. Open the DataLink dialog for any document
+2. Browse through the tabs to see all linked records across different datalink types
+3. Review the record details displayed in the table columns
+4. Click **Close** when you're done reviewing
+
+## Error Messages
+
+You may encounter the following error messages:
+
+- **"Not available for folders"**: The DataLink feature only works with files, not folders. Select a document instead.
+- **"Not compatible content"**: The document doesn't have the required properties configured. Contact your administrator to set up the necessary content model.
+- **"No elements selected"**: You attempted to delete records without selecting any. Select at least one record before clicking Delete.
+
+## Next Steps
+
+- [Search for Database Records](/usage/search-records) - Learn how to find and select database records
+- [Link Document Properties](/usage/link-properties) - Understand how document properties are linked to database values

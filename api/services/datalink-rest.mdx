@@ -1,0 +1,287 @@
+---
+title: 'VenziaDatalinkRestService'
+description: 'Angular service for calling external REST APIs configured in datalinks'
+---
+
+## Overview
+
+The `VenziaDatalinkRestService` is an Angular service that provides methods to call external REST APIs. It's used by datalink components to search and retrieve data from external systems configured in the datalink definitions.
+
+## Import
+
+```typescript
+import { VenziaDatalinkRestService } from 'venzia-datalink';
+```
+
+## Injectable
+
+```typescript
+@Injectable({
+  providedIn: 'root'
+})
+```
+
+## Constructor
+
+```typescript
+constructor(private http: HttpClient)
+```
+
+<ParamField path="http" type="HttpClient">
+  Angular HttpClient for making HTTP requests
+</ParamField>
+
+## Methods
+
+### callApi
+
+Calls an external REST API endpoint with optional parameters and authentication.
+
+```typescript
+callApi(
+  endpoint: string,
+  params?: any,
+  authdata?: string
+): Observable<any>
+```
+
+<ParamField path="endpoint" type="string" required>
+  The full URL of the external API endpoint
+</ParamField>
+
+<ParamField path="params" type="any">
+  Query parameters to include in the request
+</ParamField>
+
+<ParamField path="authdata" type="string">
+  Base64-encoded authentication data for Basic authentication
+</ParamField>
+
+<ParamField path="returns" type="Observable<any>">
+  Observable that emits the API response data
+</ParamField>
+
+#### Example - Basic API Call
+
+```typescript
+import { Component, OnInit } from '@angular/core';
+import { VenziaDatalinkRestService } from 'venzia-datalink';
+
+@Component({
+  selector: 'app-search',
+  template: `
+    <input (input)="search($event.target.value)" />
+    <div *ngFor="let result of results">
+      {{ result.name }}
+    </div>
+  `
+})
+export class SearchComponent {
+  results: any[] = [];
+
+  constructor(private restService: VenziaDatalinkRestService) {}
+
+  search(term: string) {
+    const endpoint = 'https://api.example.com/customers';
+    const params = { q: term, limit: 20 };
+
+    this.restService.callApi(endpoint, params).subscribe(
+      (data) => {
+        this.results = data;
+      },
+      (error) => {
+        console.error('Search failed:', error);
+      }
+    );
+  }
+}
+```
+
+#### Example - With Basic Authentication
+
+```typescript
+import { Component } from '@angular/core';
+import { VenziaDatalinkRestService } from 'venzia-datalink';
+
+@Component({
+  selector: 'app-secure-search',
+  template: `<div>{{ data | json }}</div>`
+})
+export class SecureSearchComponent {
+  data: any;
+
+  constructor(private restService: VenziaDatalinkRestService) {}
+
+  searchSecure() {
+    const endpoint = 'https://secure-api.example.com/data';
+    const params = { search: 'query' };
+    
+    // Create Base64 encoded credentials
+    const authdata = window.btoa('username:password');
+
+    this.restService.callApi(endpoint, params, authdata).subscribe(
+      (result) => {
+        this.data = result;
+      },
+      (error) => {
+        console.error('Error:', error);
+      }
+    );
+  }
+}
+```
+
+#### Example - Using with Datalink Configuration
+
+```typescript
+import { Component, Input, OnInit } from '@angular/core';
+import { VenziaDatalinkRestService } from 'venzia-datalink';
+
+@Component({
+  selector: 'app-datalink-search',
+  template: `
+    <input [(ngModel)]="searchTerm" (input)="performSearch()" />
+    <div *ngFor="let item of items">
+      {{ item.name }}
+    </div>
+  `
+})
+export class DatalinkSearchComponent implements OnInit {
+  @Input() connectorRest: any; // From datalink configuration
+  
+  searchTerm = '';
+  items: any[] = [];
+
+  constructor(private restService: VenziaDatalinkRestService) {}
+
+  performSearch() {
+    if (!this.searchTerm) return;
+
+    const filters = { limit: 20 };
+    filters[this.connectorRest.searchParam] = this.searchTerm;
+
+    let authdata: string | undefined;
+    if (this.connectorRest.authentication?.type === 'basic') {
+      authdata = window.btoa(
+        `${this.connectorRest.authentication.username}:${this.connectorRest.authentication.password}`
+      );
+    }
+
+    this.restService.callApi(this.connectorRest.url, filters, authdata).subscribe(
+      (results) => {
+        this.items = results;
+      },
+      (error) => {
+        console.error('Search error:', error);
+      }
+    );
+  }
+}
+```
+
+## Private Methods
+
+### extractData
+
+Extracts data from the HTTP response.
+
+```typescript
+private extractData(res: Response): any
+```
+
+<ParamField path="res" type="Response">
+  HTTP response object
+</ParamField>
+
+<ParamField path="returns" type="any">
+  Extracted response body or empty array
+</ParamField>
+
+## Implementation Details
+
+<CodeGroup>
+```typescript Service Implementation
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class VenziaDatalinkRestService {
+  constructor(private http: HttpClient) {}
+
+  callApi(endpoint: string, params?: any, authdata?: string): Observable<any> {
+    const httpOptions = {
+      headers: new HttpHeaders({
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${authdata}`
+      }),
+      params: {}
+    };
+
+    if (params) {
+      httpOptions.params = params;
+    }
+
+    return this.http.get(endpoint, httpOptions).pipe(
+      map(this.extractData)
+    );
+  }
+
+  private extractData(res: Response) {
+    const body = res;
+    return body || [];
+  }
+}
+```
+</CodeGroup>
+
+## HTTP Headers
+
+The service automatically sets the following headers:
+
+<ResponseField name="Content-Type" type="string">
+  Set to `application/json`
+</ResponseField>
+
+<ResponseField name="Authorization" type="string">
+  Set to `Basic {authdata}` when authdata parameter is provided
+</ResponseField>
+
+## Authentication
+
+The service supports Basic authentication:
+
+1. Credentials are encoded using Base64: `window.btoa('username:password')`
+2. Encoded credentials are passed as the `authdata` parameter
+3. The service adds the `Authorization: Basic {authdata}` header
+
+## Error Handling
+
+HTTP errors are propagated as Observable errors and should be handled by the calling component:
+
+```typescript
+this.restService.callApi(endpoint, params).subscribe(
+  (data) => {
+    // Success handler
+  },
+  (error) => {
+    // Error handler
+    console.error('API call failed:', error);
+  }
+);
+```
+
+## Dependencies
+
+- `@angular/core`: Angular framework
+- `@angular/common/http`: HTTP client
+- `rxjs`: Reactive programming support
+
+## See Also
+
+- [VenziaDatalinkApiService](/api/services/datalink-api) - Service for Alfresco datalink operations
+- [Datalink Search Component](/api/components/datalink-search) - Component that uses this service
+- [Datalink Add Panel Component](/api/components/datalink-search#datalink-add-panel) - Component that uses this service

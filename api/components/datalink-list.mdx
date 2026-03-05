@@ -1,0 +1,465 @@
+---
+title: 'DatalinkListComponent'
+description: 'Angular component for displaying and managing datalinks on Alfresco nodes'
+---
+
+## Overview
+
+The `DatalinkListComponent` is a standalone Angular component that displays all datalinks associated with an Alfresco node. It provides functionality for viewing, adding, and removing datalink entries through a tabbed interface.
+
+## Import
+
+```typescript
+import { DatalinkListComponent } from 'venzia-datalink';
+```
+
+## Selector
+
+```typescript
+'aqua-datalink-list'
+```
+
+## Standalone Component
+
+```typescript
+@Component({
+  standalone: true,
+  imports: [
+    CommonModule,
+    DataTableComponent,
+    MatProgressBarModule,
+    MatTabsModule,
+    DataColumnListComponent,
+    DataColumnComponent,
+    EmptyListComponent,
+    TranslateModule,
+    ArraySortPipe
+  ],
+  // ...
+})
+```
+
+## Inputs
+
+<ParamField path="nodeId" type="string" default="''">
+  ID of the Alfresco node whose datalinks you want to display
+</ParamField>
+
+<ParamField path="node" type="Node">
+  Optional Node object (alternative to nodeId)
+</ParamField>
+
+## Outputs
+
+<ResponseField name="select" type="EventEmitter<any>">
+  Emitted when datalink rows are selected. Emits array of selected items.
+</ResponseField>
+
+<ResponseField name="error" type="EventEmitter<any>">
+  Emitted when an error occurs during datalink operations.
+</ResponseField>
+
+<ResponseField name="reloadDialog" type="EventEmitter<any>">
+  Emitted when the parent dialog should reload.
+</ResponseField>
+
+## Properties
+
+<ResponseField name="rows" type="object">
+  Object containing datalink rows organized by aspect property name
+</ResponseField>
+
+<ResponseField name="datalinkList" type="any">
+  Array of all available datalink configurations
+</ResponseField>
+
+<ResponseField name="datalinkActiveIndex" type="number">
+  Index of the currently active datalink tab
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  Loading state indicator
+</ResponseField>
+
+<ResponseField name="displayNode" type="Node | SiteEntry">
+  The current node being displayed
+</ResponseField>
+
+<ResponseField name="selectedItems" type="any[]">
+  Currently selected datalink rows
+</ResponseField>
+
+## Methods
+
+### ngOnChanges
+
+Lifecycle hook that loads datalink configurations and node data.
+
+```typescript
+ngOnChanges(): void
+```
+
+### onChangeTabIndex
+
+Handles tab change events and clears selection.
+
+```typescript
+onChangeTabIndex(index: number): void
+```
+
+<ParamField path="index" type="number">
+  Index of the newly selected tab
+</ParamField>
+
+### elementClicked / elementUnClicked
+
+Handles row selection/deselection events.
+
+```typescript
+elementClicked(event: any): void
+elementUnClicked(event: any): void
+```
+
+### reload
+
+Reloads the component data from the server.
+
+```typescript
+public reload(): void
+```
+
+### onRemoveRow
+
+Removes a single row from the datalink.
+
+```typescript
+public onRemoveRow(dataRow: any, dataLink: any): void
+```
+
+<ParamField path="dataRow" type="any">
+  Row object containing the data to remove
+</ParamField>
+
+<ParamField path="dataLink" type="any">
+  Datalink configuration object
+</ParamField>
+
+### deleteSelectRows
+
+Deletes all currently selected rows.
+
+```typescript
+public deleteSelectRows(event: Event): void
+```
+
+### openAddDatalinkDialog
+
+Opens the dialog to add new datalink entries.
+
+```typescript
+public openAddDatalinkDialog(event: Event): void
+```
+
+### onError
+
+Handles and displays error messages.
+
+```typescript
+onError(errorMessage: string): void
+```
+
+## Example Usage
+
+<CodeGroup>
+```typescript Basic Usage
+import { Component } from '@angular/core';
+import { DatalinkListComponent } from 'venzia-datalink';
+
+@Component({
+  selector: 'app-document-details',
+  standalone: true,
+  imports: [DatalinkListComponent],
+  template: `
+    <aqua-datalink-list
+      [nodeId]="documentId"
+      (select)="onSelectionChange($event)"
+      (error)="handleError($event)">
+    </aqua-datalink-list>
+  `
+})
+export class DocumentDetailsComponent {
+  documentId = 'workspace://SpacesStore/abc-123';
+
+  onSelectionChange(selectedItems: any[]) {
+    console.log('Selected items:', selectedItems);
+  }
+
+  handleError(error: any) {
+    console.error('Datalink error:', error);
+  }
+}
+```
+
+```typescript With Actions
+import { Component, ViewChild } from '@angular/core';
+import { DatalinkListComponent } from 'venzia-datalink';
+
+@Component({
+  selector: 'app-datalink-manager',
+  standalone: true,
+  imports: [DatalinkListComponent],
+  template: `
+    <div class="datalink-toolbar">
+      <button 
+        (click)="addDatalinks()"
+        [disabled]="isLoading">
+        Add Datalinks
+      </button>
+      <button 
+        (click)="deleteSelected()"
+        [disabled]="selectedCount === 0">
+        Delete ({{ selectedCount }})
+      </button>
+      <button (click)="refreshData()">
+        Refresh
+      </button>
+    </div>
+
+    <aqua-datalink-list
+      #datalinkList
+      [nodeId]="nodeId"
+      (select)="onSelect($event)"
+      (error)="onError($event)"
+      (reloadDialog)="onReloadDialog()">
+    </aqua-datalink-list>
+  `
+})
+export class DatalinkManagerComponent {
+  @ViewChild('datalinkList') datalinkList: DatalinkListComponent;
+  
+  nodeId = 'workspace://SpacesStore/abc-123';
+  selectedCount = 0;
+  isLoading = false;
+
+  onSelect(items: any[]) {
+    this.selectedCount = items.length;
+  }
+
+  addDatalinks() {
+    this.datalinkList.openAddDatalinkDialog(null);
+  }
+
+  deleteSelected() {
+    if (this.selectedCount > 0) {
+      this.datalinkList.deleteSelectRows(null);
+    }
+  }
+
+  refreshData() {
+    this.datalinkList.reload();
+  }
+
+  onError(error: any) {
+    console.error('Error:', error);
+  }
+
+  onReloadDialog() {
+    console.log('Dialog reload requested');
+  }
+}
+```
+
+```html Template Example
+<div class="datalink-list-container">
+  <!-- Loading indicator -->
+  <mat-progress-bar 
+    *ngIf="isLoading" 
+    mode="indeterminate">
+  </mat-progress-bar>
+
+  <!-- Tabs for multiple datalinks -->
+  <mat-tab-group 
+    [(selectedIndex)]="datalinkActiveIndex"
+    (selectedIndexChange)="onChangeTabIndex($event)">
+    <mat-tab 
+      *ngFor="let dataLink of datalinkList"
+      [label]="dataLink.name">
+      
+      <!-- Data table for each datalink -->
+      <adf-datatable
+        [rows]="rows[dataLink.aspectPropertyName] | arraySort"
+        [selectionMode]="'multiple'"
+        (row-click)="elementClicked($event)"
+        (row-unselect)="elementUnClicked($event)">
+        
+        <data-columns>
+          <data-column
+            *ngFor="let column of dataLink.columns"
+            [key]="column.name"
+            [title]="column.name">
+          </data-column>
+        </data-columns>
+
+        <!-- Empty state -->
+        <adf-empty-list>
+          <div>No datalinks found</div>
+        </adf-empty-list>
+      </adf-datatable>
+    </mat-tab>
+  </mat-tab-group>
+</div>
+```
+</CodeGroup>
+
+## Features
+
+### Multi-Datalink Support
+
+Displays multiple datalink types in separate tabs:
+- Each tab represents one datalink configuration
+- Tab switching clears selection
+- Active tab index is tracked
+
+### Data Table
+
+Uses ADF DataTable component:
+- Configurable columns from datalink configuration
+- Multi-select support
+- Row click/unclick events
+- Empty state handling
+
+### CRUD Operations
+
+- **Read**: Loads datalinks from node properties
+- **Create**: Opens dialog to add new entries
+- **Delete**: Removes individual or multiple rows
+- **Update**: Automatically updates node properties
+
+### Loading States
+
+Provides loading indicators:
+- Progress bar during data fetch
+- Loading flag for conditional rendering
+- Automatic state management
+
+## Implementation Details
+
+<CodeGroup>
+```typescript Component Class
+import { Component, Input, OnChanges, Output, EventEmitter, ViewEncapsulation } from '@angular/core';
+import { Node, SiteEntry } from '@alfresco/js-api';
+import { VenziaDatalinkApiService } from '../../services/venzia-datalink-api.service';
+import { VenziaDatalinkSearchDialogService } from '../../services/venzia-datalink-search-dialog.service';
+import { ContentApiService } from '@alfresco/aca-shared';
+import { NodesApiService } from '@alfresco/adf-content-services';
+import { Store } from '@ngrx/store';
+import { SnackbarErrorAction, AppStore } from '@alfresco/aca-shared/store';
+
+@Component({
+  standalone: true,
+  selector: 'aqua-datalink-list',
+  templateUrl: './datalink-list.component.html',
+  styleUrls: ['./datalink-list.component.scss'],
+  encapsulation: ViewEncapsulation.None
+})
+export class DatalinkListComponent implements OnChanges {
+  @Input() nodeId = '';
+  @Input() node: Node;
+  @Output() select: EventEmitter<any> = new EventEmitter();
+  @Output() error: EventEmitter<any> = new EventEmitter();
+  @Output() reloadDialog: EventEmitter<any> = new EventEmitter();
+
+  rows: any = {};
+  datalinkList: any;
+  datalinkActiveIndex = 0;
+  isLoading = false;
+  displayNode: Node | SiteEntry;
+  selectedItems: any[] = [];
+
+  constructor(
+    private store: Store<AppStore>,
+    private contentApi: ContentApiService,
+    private nodesApiService: NodesApiService,
+    private dlnkApiService: VenziaDatalinkApiService,
+    private datalinkSearchDialogService: VenziaDatalinkSearchDialogService,
+    private logger: LogService
+  ) {}
+
+  ngOnChanges() {
+    this.isLoading = true;
+    this.dlnkApiService.loadDataLink().subscribe((data) => {
+      this.datalinkList = data;
+      this.loadNodeInfo(this.nodeId);
+    });
+  }
+
+  public reload() {
+    this.loadNodeInfo(this.nodeId);
+  }
+
+  public deleteSelectRows(_: Event) {
+    this.datalinkSearchDialogService
+      .deleteSelectRows(
+        this.nodeId,
+        this.selectedItems,
+        this.datalinkList[this.datalinkActiveIndex]
+      )
+      .subscribe(
+        () => this.reloadDialog.emit(),
+        (error) => this.store.dispatch(new SnackbarErrorAction(error))
+      );
+  }
+
+  openAddDatalinkDialog(_: Event) {
+    this.datalinkSearchDialogService
+      .updateNodeDatalinkByDialog(
+        this.nodeId,
+        this.datalinkList[this.datalinkActiveIndex]
+      )
+      .subscribe(
+        () => {},
+        (error) => this.store.dispatch(new SnackbarErrorAction(error))
+      );
+  }
+}
+```
+</CodeGroup>
+
+## Data Storage
+
+Datalink data is stored in Alfresco node properties:
+- Property name: `dataLink.aspectPropertyName`
+- Format: JSON string containing array of row objects
+- Example: `[{"id": "123", "name": "Customer A"}, ...]`
+
+## Error Handling
+
+Errors are handled through:
+- Event emission to parent components
+- NgRx store actions for snackbar notifications
+- Console logging for debugging
+
+## Styling
+
+The component includes:
+- SCSS stylesheet for custom styling
+- ViewEncapsulation.None for global styles
+- Material Design integration
+- Responsive layout support
+
+## Dependencies
+
+- `@angular/core`: Angular framework
+- `@angular/material`: Material tabs and progress bar
+- `@alfresco/adf-core`: ADF data table components
+- `@alfresco/adf-content-services`: Alfresco API services
+- `@alfresco/aca-shared`: Content App shared library
+- `@ngrx/store`: State management
+- `rxjs`: Reactive programming
+
+## See Also
+
+- [VenziaDatalinkApiService](/api/services/datalink-api) - Service for loading datalinks
+- [VenziaDatalinkSearchDialogService](/api/services/datalink-search) - Service for dialog operations
+- [Datalink Dialog Component](/api/components/datalink-dialog) - Parent dialog component
+- [Datalink Add Panel Component](/api/components/datalink-search#datalink-add-panel) - Component for adding datalinks
