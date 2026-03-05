@@ -1,0 +1,110 @@
+{
+  "projectType": "infrastructure",
+  "projectName": "Venzia Datalinks",
+  "projectDescription": "Alfresco Content Services add-on that seamlessly links document properties with database values through JSON configuration.",
+  "theme": "aspen",
+  "primaryColor": "#0473b5",
+  "lightColor": "#0a5994",
+  "darkColor": "#e38421",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/overview",
+              "configuration/datalink-json",
+              "configuration/content-models",
+              "configuration/rest-connectors"
+            ]
+          },
+          {
+            "group": "Usage Guide",
+            "pages": [
+              "usage/edit-datalink",
+              "usage/search-records",
+              "usage/link-properties"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "components/backend-module",
+              "components/frontend-extension",
+              "components/database-mock"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/architecture",
+              "development/custom-connectors",
+              "development/extending"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Web Scripts",
+            "pages": [
+              "api/webscripts/list-datalinks"
+            ]
+          },
+          {
+            "group": "Services",
+            "pages": [
+              "api/services/datalink-api",
+              "api/services/datalink-rest",
+              "api/services/datalink-search"
+            ]
+          },
+          {
+            "group": "Angular Components",
+            "pages": [
+              "api/components/datalink-dialog",
+              "api/components/datalink-list",
+              "api/components/datalink-search"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "JSON-based datalink configuration without custom code",
+    "Seamless integration with Alfresco Content Services and Content App",
+    "REST API connector with authentication support",
+    "Custom content model with datalink aspects",
+    "Real-time database value linking for document properties",
+    "Search and browse external database records",
+    "Angular UI components for datalink management"
+  ],
+  "publicApiSurface": [
+    "Web Script: GET /aqua/datalink/v1/list",
+    "VenziaDatalinkApiService.loadDataLink()",
+    "VenziaDatalinkRestService",
+    "VenziaDatalinkSearchDialogService",
+    "DatalinkDialogComponent",
+    "AddDatalinkDialogComponent",
+    "DatalinkListComponent",
+    "DatalinkAddPanelComponent",
+    "DatalinkSearchComponent",
+    "Content Model Aspects: dlnk:employee, dlnk:departm",
+    "Plugin Actions: DATALINK_OPEN_ACTION",
+    "Plugin Rules: app.canManageDataLink",
+    "JSON Configuration: datalink/*.json files"
+  ]
+}
